@@ -1,0 +1,2155 @@
+import { useEffect, useMemo, useState } from "react";
+import type { Dispatch, ElementType, ReactNode, SetStateAction } from "react";
+import L from "leaflet";
+import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CalendarDays,
+  Camera,
+  Check,
+  ChevronRight,
+  Copy,
+  Download,
+  ExternalLink,
+  FileText,
+  Filter,
+  Home,
+  Languages,
+  ListChecks,
+  Lock,
+  Map as MapIcon,
+  MapPin,
+  Navigation,
+  Plus,
+  RefreshCw,
+  Route,
+  Shield,
+  Sparkles,
+  Star,
+  Train,
+  Trophy,
+  Utensils,
+  X,
+} from "lucide-react";
+import {
+  categoryLabels,
+  cityLabels,
+  packingChecklist,
+  phraseGroups,
+  Place,
+  PlaceCategory,
+  places as basePlaces,
+  safetyNotes,
+  sources as baseSources,
+  tripDays,
+} from "./data";
+import { extraPlaces, extraSources, foodOrderGuides, koreanTravelGuides } from "./extraData";
+import { categoryShortLabels, placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
+
+type TabKey = "map" | "today" | "plan" | "ranking" | "more";
+type FilterKey =
+  | "today"
+  | "all"
+  | "must"
+  | "attraction"
+  | "food"
+  | "cafe"
+  | "view"
+  | "shopping"
+  | "photo"
+  | "safety"
+  | "reservation"
+  | "korean";
+type ModeKey = "default" | "low" | "photo" | "rain" | "night" | "shopping" | "food" | "korean" | "reservation" | "budget";
+type MoreKey = "safety" | "korean" | "foodGuide" | "phrases" | "checklist" | "exports" | "sources";
+
+type RouteItem = {
+  uid: string;
+  placeId: string;
+  locked?: boolean;
+  time?: string;
+  note?: string;
+};
+
+type GooglePlaceMeta = NonNullable<PlaceEnhancement["google"]>;
+type GooglePriceLevel = NonNullable<GooglePlaceMeta["priceLevel"]>;
+type GoogleCrowdLevel = NonNullable<GooglePlaceMeta["crowdLevel"]>;
+type GoogleConfidence = NonNullable<GooglePlaceMeta["visitConfidence"]>;
+
+type PlaceScore = {
+  rating?: number;
+  ratingText: string;
+  reviewCountLabel?: string;
+  priceLevel: GooglePriceLevel;
+  crowdLevel: GoogleCrowdLevel;
+  visitConfidence: GoogleConfidence;
+  isVerified: boolean;
+};
+
+const modeLabels: Record<ModeKey, string> = {
+  default: "기본",
+  low: "체력 아낌",
+  photo: "사진",
+  rain: "비",
+  night: "밤 안전",
+  shopping: "쇼핑",
+  food: "맛집",
+  korean: "K-취향",
+  reservation: "예약 우선",
+  budget: "가성비",
+};
+
+const filterLabels: Record<FilterKey, string> = {
+  today: "오늘 루트",
+  all: "전체",
+  must: "Must",
+  attraction: "명소",
+  food: "맛집",
+  cafe: "카페",
+  view: "전망",
+  shopping: "쇼핑",
+  photo: "사진",
+  safety: "주의",
+  reservation: "예약",
+  korean: "한국인",
+};
+
+const categoryColors: Record<PlaceCategory, string> = {
+  stay: "#24211f",
+  station: "#56616f",
+  attraction: "#e24a3b",
+  food: "#1f8f83",
+  cafe: "#c58418",
+  shopping: "#8f4bc8",
+  view: "#2d6fbb",
+  rest: "#6f7d45",
+};
+
+const tabItems = [
+  { key: "map" as const, label: "지도", icon: MapIcon },
+  { key: "today" as const, label: "오늘", icon: Sparkles },
+  { key: "plan" as const, label: "일정", icon: CalendarDays },
+  { key: "ranking" as const, label: "랭킹", icon: Trophy },
+  { key: "more" as const, label: "더보기", icon: FileText },
+];
+
+const places = [...basePlaces, ...extraPlaces];
+const sources = [...baseSources, ...extraSources];
+
+const recommendedRoutes = Object.fromEntries(
+  tripDays.map((day) => [
+    day.id,
+    day.route.map((stop, index) => ({
+      uid: `${day.id}-recommended-${index}-${stop.placeId}`,
+      placeId: stop.placeId,
+      locked: stop.locked,
+      time: stop.time,
+      note: stop.note,
+    })),
+  ])
+) as Record<string, RouteItem[]>;
+
+const emptyRoutes = Object.fromEntries(tripDays.map((day) => [day.id, []])) as Record<string, RouteItem[]>;
+
+const placesById = new Map(places.map((place) => [place.id, place]));
+
+function getEnhancement(place: Place) {
+  return placeEnhancements[place.id] ?? {};
+}
+
+const priceLevelByPlacePrice: Record<Place["price"], GooglePriceLevel> = {
+  무료: "무료",
+  낮음: "€",
+  중간: "€€",
+  높음: "€€€",
+  확인: "€€",
+};
+
+function inferCrowdLevel(place: Place): GoogleCrowdLevel {
+  if (place.category === "stay") return "보통";
+  if (place.priority === 1 && (place.category === "attraction" || place.category === "view")) return "매우 높음";
+  if (place.reservation === "필수" || place.safety !== "보통") return "높음";
+  if ((place.category === "food" || place.category === "cafe") && place.priority <= 2) return "높음";
+  return "보통";
+}
+
+function inferConfidence(place: Place): GoogleConfidence {
+  if (place.priority === 1) return "검증 강함";
+  if (place.priority === 2 || place.rank >= 84 || place.tags.includes("한국인선호")) return "검증 보통";
+  return "취향 탐";
+}
+
+// 평점은 수동으로 확인해 넣은 값만 "Google"로 표기한다.
+// 확인 안 된 곳은 내부 추천 점수(rank)만 보여주고, Google 수치를 지어내지 않는다.
+function getPlaceScore(place: Place, enhancement: PlaceEnhancement = getEnhancement(place)): PlaceScore {
+  const google = enhancement.google;
+  return {
+    rating: google?.rating,
+    ratingText: google ? `Google ${google.rating.toFixed(1)}` : `추천 ${place.rank}`,
+    reviewCountLabel: google?.reviewCountLabel,
+    priceLevel: google?.priceLevel ?? priceLevelByPlacePrice[place.price],
+    crowdLevel: google?.crowdLevel ?? inferCrowdLevel(place),
+    visitConfidence: google?.visitConfidence ?? inferConfidence(place),
+    isVerified: Boolean(google),
+  };
+}
+
+function getShortLabel(place: Place) {
+  return getEnhancement(place).shortLabel ?? place.koName.replace(/\s+/g, "").slice(0, 7);
+}
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[char] ?? char;
+  });
+}
+
+function getPlace(id: string) {
+  const place = placesById.get(id);
+  if (!place) throw new Error(`Unknown place: ${id}`);
+  return place;
+}
+
+function haversineKm(a: Place, b: Place) {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLng = (b.lng - a.lng) * rad;
+  const lat1 = a.lat * rad;
+  const lat2 = b.lat * rad;
+  const value =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+}
+
+function makeGooglePlaceUrl(place: Place) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${cityLabels[place.city]}`)}`;
+}
+
+function makeDirectionsUrl(route: RouteItem[]) {
+  const routePlaces = route.map((item) => getPlace(item.placeId));
+  if (routePlaces.length === 0) return "https://www.google.com/maps";
+  if (routePlaces.length === 1) return makeGooglePlaceUrl(routePlaces[0]);
+  const origin = routePlaces[0];
+  const destination = routePlaces[routePlaces.length - 1];
+  const waypoints = routePlaces
+    .slice(1, -1)
+    .slice(0, 8)
+    .map((place) => `${place.lat},${place.lng}`)
+    .join("|");
+
+  const params = new URLSearchParams({
+    api: "1",
+    origin: `${origin.lat},${origin.lng}`,
+    destination: `${destination.lat},${destination.lng}`,
+    travelmode: "walking",
+  });
+  if (waypoints) params.set("waypoints", waypoints);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function formatDistanceKm(km: number) {
+  if (km < 1) return `${Math.round(km * 1000)}m`;
+  return `${km.toFixed(1)}km`;
+}
+
+function routeStats(route: RouteItem[]) {
+  const routePlaces = route.map((item) => getPlace(item.placeId));
+  const km = routePlaces.slice(1).reduce((sum, place, index) => sum + haversineKm(routePlaces[index], place), 0);
+  const walkMin = Math.round((km / 4.5) * 60);
+  const caution = routePlaces.filter((place) => place.safety !== "보통").length;
+  const must = routePlaces.filter((place) => place.priority === 1).length;
+  return { km, walkMin, caution, must };
+}
+
+function escapeCsv(value: string | number) {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+function downloadFile(name: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportCsv() {
+  const rows = [
+    [
+      "Name",
+      "Description",
+      "Latitude",
+      "Longitude",
+      "Category",
+      "Priority",
+      "City",
+      "Google Rating (verified)",
+      "Review Count (verified)",
+      "Price Level",
+      "Crowd Estimate",
+      "Confidence",
+      "Highlights",
+      "Google Maps",
+    ],
+    ...places
+      .filter((place) => place.priority <= 2)
+      .map((place) => {
+        const enhancement = getEnhancement(place);
+        const google = getPlaceScore(place, enhancement);
+        return [
+          place.koName,
+          `${categoryLabels[place.category]} | ${place.area} | ${place.why}`,
+          place.lat,
+          place.lng,
+          categoryLabels[place.category],
+          place.priority === 1 ? "Must" : "Good",
+          cityLabels[place.city],
+          google.rating?.toFixed(1) ?? "",
+          google.reviewCountLabel ?? "",
+          google.priceLevel,
+          google.crowdLevel,
+          google.visitConfidence,
+          enhancement.highlights?.join(" | ") ?? "",
+          makeGooglePlaceUrl(place),
+        ];
+      }),
+  ];
+
+  downloadFile("italy-trip-map.csv", rows.map((row) => row.map(escapeCsv).join(",")).join("\n"), "text/csv;charset=utf-8");
+}
+
+function exportKml() {
+  const placemarks = places
+    .filter((place) => place.priority <= 2)
+    .map((place) => {
+      const google = getPlaceScore(place);
+      return `<Placemark>
+  <name>${place.koName}</name>
+  <description>${categoryLabels[place.category]} | ${place.area} | ${google.ratingText}${google.reviewCountLabel ? ` | ${google.reviewCountLabel}` : ""} | ${place.why}</description>
+  <Point><coordinates>${place.lng},${place.lat},0</coordinates></Point>
+</Placemark>`;
+    })
+    .join("\n");
+
+  downloadFile(
+    "italy-trip-map.kml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+<name>Italy Trip Control Map</name>
+${placemarks}
+</Document>
+</kml>`,
+    "application/vnd.google-earth.kml+xml;charset=utf-8"
+  );
+}
+
+function cloneRoute(dayId: string, route: RouteItem[], prefix = "route") {
+  return route.map((item, index) => ({
+    ...item,
+    uid: `${dayId}-${prefix}-${Date.now()}-${index}-${item.placeId}`,
+  }));
+}
+
+// 추천 코스의 uid는 고정값이라 새로고침해도 완료 체크가 유지된다.
+function defaultRoutes() {
+  return Object.fromEntries(
+    tripDays.map((day) => [day.id, (recommendedRoutes[day.id] ?? []).map((item) => ({ ...item }))])
+  ) as Record<string, RouteItem[]>;
+}
+
+function loadStoredRoutes() {
+  if (typeof window === "undefined") return defaultRoutes();
+  try {
+    const raw = window.localStorage.getItem("italy-trip-custom-routes-v2");
+    if (!raw) return defaultRoutes();
+    const parsed = JSON.parse(raw) as Record<string, RouteItem[]>;
+    const restored = {
+      ...emptyRoutes,
+      ...Object.fromEntries(
+        tripDays.map((day) => [
+          day.id,
+          Array.isArray(parsed[day.id])
+            ? parsed[day.id].filter((item) => placesById.has(item.placeId)).map((item) => ({ ...item }))
+            : [],
+        ])
+      ),
+    };
+    // 전부 빈 상태로 저장돼 있으면(이전 버전 흔적) 추천 코스로 시작
+    const hasAnyStop = Object.values(restored).some((route) => route.length > 0);
+    return hasAnyStop ? restored : defaultRoutes();
+  } catch {
+    return defaultRoutes();
+  }
+}
+
+function loadStoredRecord(key: string): Record<string, boolean> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function localISODate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+const initialDayId = (tripDays.find((day) => day.id === localISODate()) ?? tripDays[0]).id;
+
+function FitMap({ points }: { points: [number, number][] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!points.length) return;
+    if (points.length === 1) {
+      map.setView(points[0], 14);
+      return;
+    }
+    map.fitBounds(L.latLngBounds(points).pad(0.2), { animate: false });
+  }, [map, points]);
+
+  return null;
+}
+
+function PlaceMapMarker({
+  place,
+  routeIndex,
+  isSelected,
+  inRoute,
+  onSelect,
+  addToRoute,
+  replaceNext,
+}: {
+  place: Place;
+  routeIndex?: number;
+  isSelected: boolean;
+  inRoute: boolean;
+  onSelect: () => void;
+  addToRoute: (id: string) => void;
+  replaceNext: (id: string) => void;
+}) {
+  const google = getPlaceScore(place);
+  const icon = useMemo(() => {
+    const label = escapeHtml(getShortLabel(place));
+    const category = escapeHtml(categoryShortLabels[place.category]);
+    const color = categoryColors[place.category];
+    const routeBadge =
+      typeof routeIndex === "number"
+        ? `<span>${routeIndex + 1}</span>`
+        : `<span style="background:${color}">${category}</span>`;
+    return L.divIcon({
+      className: `place-label-marker ${isSelected ? "selected" : ""} ${inRoute ? "in-route" : ""}`,
+      html: `${routeBadge}<strong>${label}</strong>`,
+      iconSize: [120, 34],
+      iconAnchor: [18, 17],
+    });
+  }, [inRoute, isSelected, place, routeIndex]);
+
+  return (
+    <Marker position={[place.lat, place.lng]} icon={icon} eventHandlers={{ click: onSelect }}>
+      <Tooltip direction="top" offset={[0, -18]}>
+        {place.koName}
+      </Tooltip>
+      <Popup>
+        <div className="map-popup">
+          <strong>{place.koName}</strong>
+          <span>
+            {categoryLabels[place.category]} · {place.area} · {google.ratingText}
+          </span>
+          <p>{place.why}</p>
+          <div className="popup-meta">
+            {google.reviewCountLabel && (
+              <span>
+                <Star size={13} /> {google.reviewCountLabel}
+              </span>
+            )}
+            <span>{google.priceLevel}</span>
+            <span>혼잡 {google.crowdLevel}</span>
+          </div>
+          <div className="popup-actions">
+            <button onClick={() => addToRoute(place.id)}>
+              <Plus size={14} /> 추가
+            </button>
+            <button onClick={() => replaceNext(place.id)}>
+              <Route size={14} /> 교체
+            </button>
+            <a href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+              <ExternalLink size={14} /> Maps
+            </a>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+function Pill({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "must" | "warn" | "ok" }) {
+  return <span className={`pill pill-${tone}`}>{children}</span>;
+}
+
+function IconButton({
+  label,
+  onClick,
+  children,
+  disabled,
+  title,
+}: {
+  label: string;
+  onClick?: () => void;
+  children: ReactNode;
+  disabled?: boolean;
+  title?: string;
+}) {
+  return (
+    <button className="icon-button" onClick={onClick} disabled={disabled} title={title ?? label} aria-label={label}>
+      {children}
+    </button>
+  );
+}
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<TabKey>("map");
+  const [selectedDayId, setSelectedDayId] = useState(initialDayId);
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [mode, setMode] = useState<ModeKey>("default");
+  const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
+  const [done, setDone] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-done-v1"));
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>(recommendedRoutes[initialDayId][1]?.placeId ?? places[0].id);
+  const [rankingCategory, setRankingCategory] = useState<PlaceCategory | "all">("all");
+  const [rankingCity, setRankingCity] = useState<"all" | "rome" | "florence">("all");
+  const [query, setQuery] = useState("");
+  const [moreSection, setMoreSection] = useState<MoreKey>("safety");
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-checks-v1"));
+  const [toast, setToast] = useState("");
+
+  const selectedDay = tripDays.find((day) => day.id === selectedDayId) ?? tripDays[0];
+  const selectedRoute = routes[selectedDay.id] ?? [];
+  const selectedRoutePlaces = selectedRoute.map((item) => getPlace(item.placeId));
+  const relevantCities = useMemo(() => new Set(selectedRoutePlaces.map((place) => place.city).concat(selectedDay.city)), [selectedRoutePlaces, selectedDay.city]);
+  const selectedPlace = placesById.get(selectedPlaceId) ?? selectedRoutePlaces[0];
+  const nextStop = selectedRoute.find((item) => !done[item.uid] && getPlace(item.placeId).category !== "stay");
+  const nextPlace = nextStop ? getPlace(nextStop.placeId) : selectedRoutePlaces.find((place) => place.category !== "stay");
+  const stats = routeStats(selectedRoute);
+
+	  useEffect(() => {
+	    if (!toast) return;
+	    const timer = window.setTimeout(() => setToast(""), 1700);
+	    return () => window.clearTimeout(timer);
+	  }, [toast]);
+
+  useEffect(() => {
+    window.localStorage.setItem("italy-trip-custom-routes-v2", JSON.stringify(routes));
+  }, [routes]);
+
+  useEffect(() => {
+    window.localStorage.setItem("italy-trip-done-v1", JSON.stringify(done));
+  }, [done]);
+
+  useEffect(() => {
+    window.localStorage.setItem("italy-trip-checks-v1", JSON.stringify(checkedItems));
+  }, [checkedItems]);
+
+  const mapPlaces = useMemo(() => {
+    const routeIds = new Set(selectedRoute.map((item) => item.placeId));
+    return places.filter((place) => {
+      if (!relevantCities.has(place.city)) return false;
+      if (filter === "today") return routeIds.size ? routeIds.has(place.id) : place.priority === 1;
+      if (filter === "all") return place.priority <= 2;
+      if (filter === "must") return place.priority === 1;
+      if (filter === "photo") return place.photo === 3;
+      if (filter === "safety") return place.safety !== "보통";
+      if (filter === "reservation") return place.reservation === "필수" || place.reservation === "권장";
+      if (filter === "korean") return Boolean(place.koreanTips?.length) || place.tags.includes("한국인선호");
+      return place.category === filter;
+    });
+  }, [filter, relevantCities, selectedRoute]);
+
+  const routePositions = selectedRoutePlaces.map((place) => [place.lat, place.lng] as [number, number]);
+  const mapFitPoints = (filter === "today" ? selectedRoutePlaces : mapPlaces).map((place) => [place.lat, place.lng] as [number, number]);
+
+  const recommendations = useMemo(() => {
+    const routeIds = new Set(selectedRoute.map((item) => item.placeId));
+    const anchor = selectedPlace ?? nextPlace ?? selectedRoutePlaces[0];
+    return places
+      .filter((place) => relevantCities.has(place.city))
+      .filter((place) => place.priority <= 2 && !routeIds.has(place.id) && place.category !== "stay" && place.category !== "station")
+      .map((place) => {
+        const distance = anchor ? haversineKm(anchor, place) : 2;
+        let score = place.rank + place.girlsTripFit * 4 + Math.max(0, 18 - distance * 5);
+        if (mode === "low") score += place.durationMin <= 45 ? 22 : place.durationMin <= 75 ? 10 : -18;
+        if (mode === "low" && ["cafe", "rest", "food"].includes(place.category)) score += 10;
+        if (mode === "photo") score += place.photo * 10 + (place.category === "view" ? 12 : 0);
+        if (mode === "rain") score += place.tags.includes("실내") ? 26 : place.category === "cafe" ? 12 : place.category === "view" ? -18 : 0;
+        if (mode === "night") score += place.safety === "보통" ? 18 : place.safety === "밤주의" ? -28 : -8;
+        if (mode === "shopping") score += place.category === "shopping" ? 32 : place.category === "cafe" ? 8 : 0;
+        if (mode === "food") score += place.category === "food" ? 32 : place.category === "cafe" ? 12 : 0;
+        if (mode === "korean") {
+          score += place.tags.includes("한국인선호") ? 30 : 0;
+          score += place.koreanTips?.length ? 12 : 0;
+          score += ["food", "cafe", "shopping", "view"].includes(place.category) ? 8 : 0;
+          score += place.safety === "밤주의" ? -10 : 0;
+        }
+        if (mode === "reservation") {
+          score += place.reservation === "필수" ? 24 : place.reservation === "권장" ? 12 : -8;
+          score += place.priority === 1 ? 8 : 0;
+        }
+        if (mode === "budget") {
+          score += place.price === "무료" ? 24 : place.price === "낮음" ? 20 : place.price === "중간" ? 6 : -14;
+          score += place.category === "food" || place.category === "cafe" ? 8 : 0;
+        }
+        return { place, score, distance };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4);
+  }, [mode, nextPlace, relevantCities, selectedPlace, selectedRoute, selectedRoutePlaces]);
+
+  function setDay(dayId: string) {
+    setSelectedDayId(dayId);
+    const day = tripDays.find((item) => item.id === dayId);
+    const currentRoute = routes[dayId] ?? [];
+    if (currentRoute[0]) {
+      setSelectedPlaceId(currentRoute[0].placeId);
+      return;
+    }
+    if (day?.route[1]) setSelectedPlaceId(day.route[1].placeId);
+  }
+
+  function addToRoute(placeId: string) {
+    setRoutes((current) => {
+      const items = current[selectedDay.id] ?? [];
+      if (items.some((item) => item.placeId === placeId)) return current;
+      const newItem = { uid: `${selectedDay.id}-custom-${Date.now()}-${placeId}`, placeId };
+      // 마지막이 숙소 복귀(잠금)면 그 앞에 끼워넣는다
+      const next = [...items];
+      const last = next[next.length - 1];
+      const insertAt = last && last.locked && getPlace(last.placeId).category === "stay" ? next.length - 1 : next.length;
+      next.splice(insertAt, 0, newItem);
+      return { ...current, [selectedDay.id]: next };
+    });
+    setSelectedPlaceId(placeId);
+    setToast("루트에 추가됨");
+  }
+
+  function replaceNext(placeId: string) {
+    setRoutes((current) => {
+      const items = current[selectedDay.id] ?? [];
+      // 잠긴 일정(예약/기차)과 숙소·역은 교체 대상에서 제외
+      const index = items.findIndex((item) => {
+        if (done[item.uid] || item.locked) return false;
+        const category = getPlace(item.placeId).category;
+        return category !== "stay" && category !== "station";
+      });
+      if (index < 0) {
+        const newItem = { uid: `${selectedDay.id}-custom-${Date.now()}-${placeId}`, placeId, note: "추천으로 추가" };
+        const next = [...items];
+        const last = next[next.length - 1];
+        const insertAt = last && last.locked && getPlace(last.placeId).category === "stay" ? next.length - 1 : next.length;
+        next.splice(insertAt, 0, newItem);
+        return { ...current, [selectedDay.id]: next };
+      }
+      const next = [...items];
+      next[index] = { ...next[index], placeId, note: "현장 교체" };
+      return { ...current, [selectedDay.id]: next };
+    });
+    setSelectedPlaceId(placeId);
+    setToast("다음 후보로 교체됨");
+  }
+
+  function removeRouteItem(uid: string) {
+    setRoutes((current) => {
+      const items = current[selectedDay.id] ?? [];
+      const target = items.find((entry) => entry.uid === uid);
+      if (target?.locked) return current;
+      return { ...current, [selectedDay.id]: items.filter((entry) => entry.uid !== uid) };
+    });
+  }
+
+  function moveRouteItem(index: number, direction: -1 | 1) {
+    setRoutes((current) => {
+      const items = current[selectedDay.id] ?? [];
+      const target = index + direction;
+      if (target < 0 || target >= items.length) return current;
+      if (items[index].locked || items[target].locked) return current;
+      const next = [...items];
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...current, [selectedDay.id]: next };
+    });
+  }
+
+  function toggleDone(uid: string) {
+    setDone((current) => ({ ...current, [uid]: !current[uid] }));
+  }
+
+  async function copyPhrase(text: string) {
+    await navigator.clipboard?.writeText(text);
+    setToast("복사됨");
+  }
+
+  function clearRoute() {
+    setRoutes((current) => ({ ...current, [selectedDay.id]: [] }));
+    setDone((current) => {
+      const next = { ...current };
+      selectedRoute.forEach((item) => delete next[item.uid]);
+      return next;
+    });
+    setToast("오늘 코스 비움");
+  }
+
+  function applyRecommendedRoute(mode: "replace" | "append" = "replace") {
+    setRoutes((current) => {
+      const currentItems = current[selectedDay.id] ?? [];
+      const currentIds = new Set(currentItems.map((item) => item.placeId));
+      const recommended = cloneRoute(
+        selectedDay.id,
+        (recommendedRoutes[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
+        mode === "replace" ? "apply" : "append"
+      );
+      if (mode === "replace") return { ...current, [selectedDay.id]: recommended };
+      const next = [...currentItems];
+      const last = next[next.length - 1];
+      const insertAt = last && last.locked && getPlace(last.placeId).category === "stay" ? next.length - 1 : next.length;
+      next.splice(insertAt, 0, ...recommended.filter((item) => getPlace(item.placeId).category !== "stay"));
+      return { ...current, [selectedDay.id]: next };
+    });
+    setToast(mode === "replace" ? "추천 코스 적용됨" : "추천 장소 추가됨");
+  }
+
+  return (
+    <div className="app-shell">
+      <main className="app-main">
+        {activeTab === "map" && (
+          <MapScreen
+            selectedDayId={selectedDayId}
+            setDay={setDay}
+            selectedDay={selectedDay}
+            selectedRoute={selectedRoute}
+            routePositions={routePositions}
+            mapFitPoints={mapFitPoints}
+            mapPlaces={mapPlaces}
+            selectedPlaceId={selectedPlaceId}
+            setSelectedPlaceId={setSelectedPlaceId}
+            filter={filter}
+            setFilter={setFilter}
+            mode={mode}
+            setMode={setMode}
+            recommendations={recommendations}
+            stats={stats}
+            done={done}
+            nextStop={nextStop}
+            addToRoute={addToRoute}
+            replaceNext={replaceNext}
+            removeRouteItem={removeRouteItem}
+            moveRouteItem={moveRouteItem}
+	            toggleDone={toggleDone}
+	            clearRoute={clearRoute}
+	            applyRecommendedRoute={applyRecommendedRoute}
+	          />
+        )}
+        {activeTab === "today" && (
+          <TodayScreen
+            selectedDay={selectedDay}
+            selectedRoute={selectedRoute}
+            done={done}
+            stats={stats}
+            nextPlace={nextPlace}
+            recommendations={recommendations}
+            setActiveTab={setActiveTab}
+            setDay={setDay}
+            toggleDone={toggleDone}
+            checkedItems={checkedItems}
+            setCheckedItems={setCheckedItems}
+          />
+        )}
+        {activeTab === "plan" && (
+          <PlanScreen
+            selectedDayId={selectedDayId}
+            setDay={setDay}
+	            routes={routes}
+	            setActiveTab={setActiveTab}
+	            applyRecommendedRoute={(dayId) => {
+	              const day = tripDays.find((item) => item.id === dayId);
+	              if (!day) return;
+	              setSelectedDayId(dayId);
+	              setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, recommendedRoutes[dayId] ?? [], "plan-apply") }));
+	              setToast("추천 코스 적용됨");
+	            }}
+	          />
+        )}
+        {activeTab === "ranking" && (
+          <RankingScreen
+            rankingCategory={rankingCategory}
+            setRankingCategory={setRankingCategory}
+            rankingCity={rankingCity}
+            setRankingCity={setRankingCity}
+            query={query}
+            setQuery={setQuery}
+            addToRoute={addToRoute}
+            setSelectedPlaceId={setSelectedPlaceId}
+            setActiveTab={setActiveTab}
+          />
+        )}
+        {activeTab === "more" && (
+          <MoreScreen
+            moreSection={moreSection}
+            setMoreSection={setMoreSection}
+            checkedItems={checkedItems}
+            setCheckedItems={setCheckedItems}
+            copyPhrase={copyPhrase}
+          />
+        )}
+      </main>
+
+      <nav className="bottom-nav" aria-label="주요 메뉴">
+        {tabItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.key}
+              className={activeTab === item.key ? "nav-item active" : "nav-item"}
+              onClick={() => setActiveTab(item.key)}
+            >
+              <Icon size={20} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+function DayStrip({ selectedDayId, setDay }: { selectedDayId: string; setDay: (id: string) => void }) {
+  return (
+    <div className="day-strip" aria-label="날짜 선택">
+      {tripDays.map((day) => (
+        <button key={day.id} className={selectedDayId === day.id ? "day-chip active" : "day-chip"} onClick={() => setDay(day.id)}>
+          <span>{day.label}</span>
+          <small>{cityLabels[day.city]}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MapLegend({ visibleCount, totalCount }: { visibleCount: number; totalCount: number }) {
+  const legendItems: { category: PlaceCategory; label: string }[] = [
+    { category: "attraction", label: "명소" },
+    { category: "food", label: "맛집" },
+    { category: "cafe", label: "카페" },
+    { category: "view", label: "전망" },
+    { category: "shopping", label: "쇼핑" },
+    { category: "station", label: "역" },
+  ];
+
+  return (
+    <div className="map-legend">
+      <div className="map-legend-summary">
+        <Filter size={15} />
+        <strong>{visibleCount}</strong>
+        <span>/ {totalCount}개 중요 핀 표시</span>
+      </div>
+      <div className="legend-dots">
+        {legendItems.map((item) => (
+          <span key={item.category}>
+            <i style={{ backgroundColor: categoryColors[item.category] }} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type WikiSummary = { url?: string; extract?: string; sourceUrl?: string };
+
+// 같은 장소가 루트/타임라인/카드 여러 곳에서 그려지므로 위키 요청은 1회만
+const wikiSummaryCache = new Map<string, Promise<WikiSummary>>();
+
+function fetchWikiSummary(title: string): Promise<WikiSummary> {
+  const cached = wikiSummaryCache.get(title);
+  if (cached) return cached;
+  const request = fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
+    .then((response) => (response.ok ? response.json() : undefined))
+    .then((data): WikiSummary => {
+      if (!data) return {};
+      return {
+        url: data.thumbnail?.source ?? data.originalimage?.source,
+        extract: data.extract,
+        sourceUrl: data.content_urls?.desktop?.page,
+      };
+    })
+    .catch((): WikiSummary => ({}));
+  wikiSummaryCache.set(title, request);
+  return request;
+}
+
+function usePlaceMedia(place: Place, enhancement: PlaceEnhancement) {
+  const [wikiImage, setWikiImage] = useState<WikiSummary>({});
+  const imageUrl = enhancement.imageUrl ?? wikiImage.url;
+  const sourceUrl = enhancement.imageSourceUrl ?? wikiImage.sourceUrl;
+
+  useEffect(() => {
+    let active = true;
+    setWikiImage({});
+    if (!enhancement.wikiTitle || enhancement.imageUrl) return;
+
+    fetchWikiSummary(enhancement.wikiTitle).then((summary) => {
+      if (active) setWikiImage(summary);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [enhancement.imageUrl, enhancement.wikiTitle, place.id]);
+
+  return { imageUrl, extract: wikiImage.extract, sourceUrl };
+}
+
+function PlaceThumb({ place, order }: { place: Place; order?: number }) {
+  const enhancement = getEnhancement(place);
+  const { imageUrl } = usePlaceMedia(place, enhancement);
+
+  return (
+    <span className={imageUrl ? "place-thumb has-image" : "place-thumb"} style={{ ["--thumb-color" as string]: categoryColors[place.category] }}>
+      {imageUrl ? (
+        <img src={imageUrl} alt="" loading="lazy" />
+      ) : (
+        <>
+          <small>{order ?? categoryShortLabels[place.category]}</small>
+          <strong>{getShortLabel(place)}</strong>
+        </>
+      )}
+    </span>
+  );
+}
+
+function PlaceMediaHero({ place, enhancement }: { place: Place; enhancement: PlaceEnhancement }) {
+  const { imageUrl, extract, sourceUrl } = usePlaceMedia(place, enhancement);
+
+  return (
+    <div className={imageUrl ? "place-media has-image" : "place-media no-image"} style={{ ["--media-color" as string]: categoryColors[place.category] }}>
+      {imageUrl ? (
+        <img src={imageUrl} alt={place.koName} loading="lazy" />
+      ) : (
+        <div>
+          <span>{categoryShortLabels[place.category]}</span>
+          <strong>{getShortLabel(place)}</strong>
+        </div>
+      )}
+      <div className="place-media-caption">
+        <strong>{place.koName}</strong>
+        <span>{enhancement.imageCredit ?? (sourceUrl ? "Wikimedia / Wikipedia" : categoryLabels[place.category])}</span>
+        {sourceUrl && (
+          <a href={sourceUrl} target="_blank" rel="noreferrer" aria-label={`${place.koName} 이미지 출처`}>
+            <ExternalLink size={13} />
+          </a>
+        )}
+      </div>
+      {extract && !enhancement.highlights?.length ? <p>{extract}</p> : null}
+    </div>
+  );
+}
+
+function PlaceInsightCard({
+  place,
+  selectedRoute,
+  addToRoute,
+  replaceNext,
+  setSelectedPlaceId,
+}: {
+  place?: Place;
+  selectedRoute: RouteItem[];
+  addToRoute: (id: string) => void;
+  replaceNext: (id: string) => void;
+  setSelectedPlaceId: (id: string) => void;
+}) {
+  if (!place) return null;
+
+  const enhancement = getEnhancement(place);
+  const google = getPlaceScore(place, enhancement);
+  const inRoute = selectedRoute.some((item) => item.placeId === place.id);
+  const pairPlaces = place.pairWith.map((id) => placesById.get(id)).filter((item): item is Place => Boolean(item)).slice(0, 6);
+  const sourceNames = place.sourceIds
+    .map((id) => sources.find((source) => source.id === id)?.label)
+    .filter((label): label is string => Boolean(label))
+    .slice(0, 3);
+
+  return (
+    <article className="place-insight">
+      <div className="place-insight-head">
+        <span className="category-dot" style={{ backgroundColor: categoryColors[place.category] }} />
+        <div>
+          <small>
+            {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
+          </small>
+          <h2>{place.koName}</h2>
+        </div>
+        <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
+      </div>
+
+      <PlaceMediaHero place={place} enhancement={enhancement} />
+
+      <p>{place.why}</p>
+
+      <div className="google-review-box">
+        <div className="google-score">
+          <Star size={18} />
+          <strong>{google.rating ? google.rating.toFixed(1) : place.rank}</strong>
+          <span>
+            {google.isVerified
+              ? `Google 평점 · ${google.reviewCountLabel ?? "리뷰 다수"} · 수동 확인값`
+              : "내부 추천 점수 · Google 평점은 실시간 확인 권장"}
+          </span>
+        </div>
+        <div className="google-tags">
+          <span>{google.priceLevel}</span>
+          <span>혼잡 {google.crowdLevel}</span>
+          <span>{google.visitConfidence}</span>
+        </div>
+        <a href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+          실시간 확인 <ExternalLink size={13} />
+        </a>
+      </div>
+
+      <div className="insight-metrics">
+        <span>
+          <ClockIcon /> {place.durationMin}분
+        </span>
+        <span>
+          <Camera size={14} /> 사진 {place.photo}
+        </span>
+        <span>
+          <Shield size={14} /> {place.safety}
+        </span>
+        <span>{place.reservation}</span>
+      </div>
+
+      {enhancement.highlights?.length ? (
+        <div className="insight-chip-section">
+          {enhancement.highlights.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {enhancement.reviewSignals?.length ? (
+        <div className="insight-block review-signals">
+          <strong>평가에서 자주 갈리는 포인트</strong>
+          <ul>
+            {enhancement.reviewSignals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="insight-block">
+        <strong>현장 판단</strong>
+        <ul>
+          {place.tips.slice(0, 2).map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
+          {(place.koreanTips ?? []).slice(0, 2).map((tip) => (
+            <li key={tip}>{tip}</li>
+          ))}
+        </ul>
+      </div>
+
+      {place.watchOut?.length ? (
+        <div className="watchout-row">
+          <AlertTriangle size={15} />
+          <span>{place.watchOut.slice(0, 2).join(" · ")}</span>
+        </div>
+      ) : null}
+
+      {place.menuHints?.length ? (
+        <div className="tag-row compact-tags">
+          {place.menuHints.slice(0, 4).map((hint) => (
+            <span key={hint}>{hint}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {pairPlaces.length ? (
+        <div className="pair-box">
+          <strong>같이 묶기</strong>
+          <div>
+            {pairPlaces.map((pair) => (
+              <button key={pair.id} onClick={() => setSelectedPlaceId(pair.id)}>
+                {pair.koName}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="card-actions">
+        <button className="solid-button compact" onClick={() => addToRoute(place.id)} disabled={inRoute}>
+          <Plus size={16} />
+          {inRoute ? "루트 포함" : "루트 추가"}
+        </button>
+        <button className="ghost-button compact" onClick={() => replaceNext(place.id)}>
+          <Route size={16} />
+          다음 교체
+        </button>
+        <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+          Maps <ExternalLink size={14} />
+        </a>
+      </div>
+
+      {sourceNames.length ? <small className="source-mini">출처: {sourceNames.join(", ")}</small> : null}
+    </article>
+  );
+}
+
+function RecommendedRouteCard({
+  day,
+  recommendedRoute,
+  currentRoute,
+  applyRecommendedRoute,
+  addToRoute,
+  setSelectedPlaceId,
+}: {
+  day: (typeof tripDays)[number];
+  recommendedRoute: RouteItem[];
+  currentRoute: RouteItem[];
+  applyRecommendedRoute: (mode?: "replace" | "append") => void;
+  addToRoute: (id: string) => void;
+  setSelectedPlaceId: (id: string) => void;
+}) {
+  const currentIds = new Set(currentRoute.map((item) => item.placeId));
+  const suggestedPlaces = recommendedRoute.map((item) => getPlace(item.placeId));
+  const stats = routeStats(recommendedRoute);
+
+  return (
+    <article className="recommended-route-card">
+      <div className="section-title-row">
+        <div>
+          <h2>추천 코스</h2>
+          <p>
+            {day.areaFocus} · {suggestedPlaces.length} stops · {formatDistanceKm(stats.km)}
+          </p>
+        </div>
+        <Pill tone="ok">선택 적용</Pill>
+      </div>
+      <div className="template-route">
+        {recommendedRoute.map((item, index) => {
+          const place = getPlace(item.placeId);
+          const google = getPlaceScore(place);
+          const added = currentIds.has(place.id);
+          return (
+            <button
+              key={item.uid}
+              className={added ? "added" : ""}
+              onClick={() => setSelectedPlaceId(place.id)}
+              title={place.why}
+            >
+              <span>{index + 1}</span>
+              <strong>{place.koName}</strong>
+              <small>
+                {item.time ?? categoryLabels[place.category]} · {google.ratingText}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+      <div className="card-actions">
+        <button className="solid-button compact" onClick={() => applyRecommendedRoute("replace")}>
+          <RefreshCw size={16} />
+          추천안 적용
+        </button>
+        <button className="ghost-button compact" onClick={() => applyRecommendedRoute("append")}>
+          <Plus size={16} />
+          빠진 곳 추가
+        </button>
+      </div>
+      <div className="quick-add-row">
+        {recommendedRoute
+          .filter((item) => !currentIds.has(item.placeId))
+          .slice(0, 4)
+          .map((item) => {
+            const place = getPlace(item.placeId);
+            return (
+              <button key={item.uid} onClick={() => addToRoute(place.id)}>
+                <Plus size={13} />
+                {place.koName}
+              </button>
+            );
+          })}
+      </div>
+    </article>
+  );
+}
+
+function MapScreen({
+  selectedDayId,
+  setDay,
+  selectedDay,
+  selectedRoute,
+  routePositions,
+  mapFitPoints,
+  mapPlaces,
+  selectedPlaceId,
+  setSelectedPlaceId,
+  filter,
+  setFilter,
+  mode,
+  setMode,
+  recommendations,
+  stats,
+  done,
+  nextStop,
+  addToRoute,
+  replaceNext,
+  removeRouteItem,
+  moveRouteItem,
+  toggleDone,
+  clearRoute,
+  applyRecommendedRoute,
+}: {
+  selectedDayId: string;
+  setDay: (id: string) => void;
+  selectedDay: (typeof tripDays)[number];
+  selectedRoute: RouteItem[];
+  routePositions: [number, number][];
+  mapFitPoints: [number, number][];
+  mapPlaces: Place[];
+  selectedPlaceId: string;
+  setSelectedPlaceId: (id: string) => void;
+  filter: FilterKey;
+  setFilter: (filter: FilterKey) => void;
+  mode: ModeKey;
+  setMode: (mode: ModeKey) => void;
+  recommendations: { place: Place; score: number; distance: number }[];
+  stats: ReturnType<typeof routeStats>;
+  done: Record<string, boolean>;
+  nextStop?: RouteItem;
+  addToRoute: (id: string) => void;
+  replaceNext: (id: string) => void;
+  removeRouteItem: (uid: string) => void;
+  moveRouteItem: (index: number, direction: -1 | 1) => void;
+  toggleDone: (uid: string) => void;
+  clearRoute: () => void;
+  applyRecommendedRoute: (mode?: "replace" | "append") => void;
+}) {
+  const nextPlace = nextStop ? getPlace(nextStop.placeId) : undefined;
+  const selectedPlace = placesById.get(selectedPlaceId);
+  const selectedGoogle = selectedPlace ? getPlaceScore(selectedPlace, getEnhancement(selectedPlace)) : undefined;
+  const routeAreas = Array.from(new Set(selectedRoute.map((item) => getPlace(item.placeId).area))).slice(0, 3);
+  const mustCount = selectedRoute.filter((item) => getPlace(item.placeId).priority === 1).length;
+  const foodCount = selectedRoute.filter((item) => getPlace(item.placeId).category === "food" || getPlace(item.placeId).category === "cafe").length;
+  const routeIndexByPlaceId = useMemo(
+    () => new Map(selectedRoute.map((item, index) => [item.placeId, index])),
+    [selectedRoute]
+  );
+
+  return (
+    <section className="screen map-screen">
+      <div className="screen-header map-header">
+        <div>
+          <p className="eyebrow">Italy Trip Control Map</p>
+          <h1>{selectedDay.title}</h1>
+          <p className="subline">
+            {selectedDay.label} · {selectedDay.areaFocus}
+          </p>
+        </div>
+        <div className="header-actions">
+          <select value={mode} onChange={(event) => setMode(event.target.value as ModeKey)} aria-label="루트 모드">
+            {Object.entries(modeLabels).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <IconButton label="코스 비우기" onClick={clearRoute}>
+            <X size={18} />
+          </IconButton>
+        </div>
+      </div>
+
+      <DayStrip selectedDayId={selectedDayId} setDay={setDay} />
+
+      <div className="filter-row" aria-label="지도 필터">
+        {(Object.keys(filterLabels) as FilterKey[]).map((key) => (
+          <button key={key} className={filter === key ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(key)}>
+            {filterLabels[key]}
+          </button>
+        ))}
+      </div>
+
+      <MapLegend visibleCount={mapPlaces.length} totalCount={places.filter((place) => place.priority <= 2).length} />
+
+      <div className="map-workspace">
+        <div className="map-card">
+          <MapContainer className="leaflet-map" center={[41.9028, 12.4964]} zoom={13} scrollWheelZoom>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <FitMap points={mapFitPoints.length ? mapFitPoints : routePositions} />
+            {routePositions.length > 1 && <Polyline positions={routePositions} pathOptions={{ color: "#24211f", weight: 4, opacity: 0.72 }} />}
+            {mapPlaces.map((place) => {
+              const isSelected = selectedPlaceId === place.id;
+              const inRoute = selectedRoute.some((item) => item.placeId === place.id);
+              return (
+                <PlaceMapMarker
+                  key={place.id}
+                  place={place}
+                  routeIndex={routeIndexByPlaceId.get(place.id)}
+                  isSelected={isSelected}
+                  inRoute={inRoute}
+                  onSelect={() => setSelectedPlaceId(place.id)}
+                  addToRoute={addToRoute}
+                  replaceNext={replaceNext}
+                />
+              );
+            })}
+          </MapContainer>
+          {selectedPlace && (
+            <div className="map-floating-insight">
+              <div>
+                <span>
+                  {categoryLabels[selectedPlace.category]} · {selectedPlace.area} · {selectedGoogle?.ratingText}
+                </span>
+                <strong>{selectedPlace.koName}</strong>
+                <em>
+                  {selectedGoogle?.reviewCountLabel ? `${selectedGoogle.reviewCountLabel} · ` : ""}
+                  {selectedGoogle?.priceLevel} · 혼잡 {selectedGoogle?.crowdLevel}
+                </em>
+                <small>{selectedPlace.why}</small>
+              </div>
+              <div>
+                <a href={makeGooglePlaceUrl(selectedPlace)} target="_blank" rel="noreferrer" aria-label={`${selectedPlace.koName} Google Maps`}>
+                  <Navigation size={16} />
+                </a>
+                <button
+                  onClick={() => addToRoute(selectedPlace.id)}
+                  disabled={selectedRoute.some((item) => item.placeId === selectedPlace.id)}
+                  aria-label={`${selectedPlace.koName} 루트 추가`}
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <aside className="route-panel">
+	          <div className="route-now">
+	            <div>
+	              <span className="label">다음</span>
+	              <strong>{nextPlace?.koName ?? (selectedRoute.length ? "오늘 코스 완료" : "코스 비어 있음")}</strong>
+	              <p>
+	                {selectedRoute.length ? `${formatDistanceKm(stats.km)} · 도보 약 ${stats.walkMin}분 · 주의 ${stats.caution}` : "지도 핀이나 추천안에서 장소를 추가하세요"}
+	              </p>
+	            </div>
+            <a className={selectedRoute.length ? "solid-button compact" : "solid-button compact disabled-link"} href={makeDirectionsUrl(selectedRoute)} target="_blank" rel="noreferrer">
+              <Navigation size={16} />
+              길찾기
+            </a>
+          </div>
+
+          <div className="route-signal-grid">
+            <div>
+              <MapPin size={16} />
+	              <strong>{routeAreas.join(" · ") || "미정"}</strong>
+              <span>오늘 권역</span>
+            </div>
+            <div>
+              <Star size={16} />
+              <strong>{mustCount}</strong>
+              <span>Must</span>
+            </div>
+            <div>
+              <Utensils size={16} />
+              <strong>{foodCount}</strong>
+              <span>먹고 쉬기</span>
+            </div>
+            <div>
+              <Shield size={16} />
+              <strong>{stats.caution}</strong>
+              <span>주의 핀</span>
+            </div>
+          </div>
+
+          <PlaceInsightCard
+            place={selectedPlace}
+            selectedRoute={selectedRoute}
+            addToRoute={addToRoute}
+            replaceNext={replaceNext}
+            setSelectedPlaceId={setSelectedPlaceId}
+          />
+
+          <RecommendedRouteCard
+            day={selectedDay}
+            recommendedRoute={recommendedRoutes[selectedDay.id] ?? []}
+            currentRoute={selectedRoute}
+            applyRecommendedRoute={applyRecommendedRoute}
+            addToRoute={addToRoute}
+            setSelectedPlaceId={setSelectedPlaceId}
+          />
+
+          <div className="route-list">
+            {selectedRoute.length === 0 && (
+              <div className="empty-route">
+                <strong>오늘 코스가 비어 있어요.</strong>
+                <p>지도 핀, 랭킹, 추천 코스에서 장소를 골라 직접 추가하면 선과 순서가 생깁니다.</p>
+              </div>
+            )}
+            {selectedRoute.map((item, index) => {
+              const place = getPlace(item.placeId);
+              const isDone = done[item.uid];
+              const google = getPlaceScore(place);
+              return (
+                <div key={item.uid} className={isDone ? "route-item done" : "route-item"}>
+                  <button className="route-main" onClick={() => setSelectedPlaceId(place.id)}>
+                    <PlaceThumb place={place} order={index + 1} />
+                    <span>
+                      <strong>{place.koName}</strong>
+                      <small>
+                        {item.time ? `${item.time} · ` : ""}
+                        {categoryLabels[place.category]} · {place.durationMin}분 · {google.ratingText}
+                      </small>
+                    </span>
+                  </button>
+                  <div className="route-tools">
+                    <IconButton label="완료" onClick={() => toggleDone(item.uid)}>
+                      <Check size={16} />
+                    </IconButton>
+                    {item.locked ? (
+                      <IconButton label="고정 일정" disabled title="예약/이동 등 고정 일정이라 수정 불가">
+                        <Lock size={16} />
+                      </IconButton>
+                    ) : (
+                      <>
+                        <IconButton
+                          label="위로"
+                          onClick={() => moveRouteItem(index, -1)}
+                          disabled={index === 0 || Boolean(selectedRoute[index - 1]?.locked)}
+                        >
+                          <ArrowUp size={16} />
+                        </IconButton>
+                        <IconButton
+                          label="아래로"
+                          onClick={() => moveRouteItem(index, 1)}
+                          disabled={index === selectedRoute.length - 1 || Boolean(selectedRoute[index + 1]?.locked)}
+                        >
+                          <ArrowDown size={16} />
+                        </IconButton>
+                        <IconButton label="삭제" onClick={() => removeRouteItem(item.uid)}>
+                          <X size={16} />
+                        </IconButton>
+                      </>
+                    )}
+                  </div>
+                  {item.note && <p className="route-note">{item.note}</p>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="recommend-box">
+            <div className="section-title-row">
+              <h2>지금 추천</h2>
+              <Pill tone="ok">{modeLabels[mode]}</Pill>
+            </div>
+            {recommendations.map(({ place, distance }) => {
+              const google = getPlaceScore(place);
+              return (
+                <div className="recommend-item" key={place.id}>
+                  <button onClick={() => setSelectedPlaceId(place.id)}>
+                    <strong>{place.koName}</strong>
+                    <small>
+                      {categoryLabels[place.category]} · {formatDistanceKm(distance)} · {google.ratingText} · {place.durationMin}분
+                    </small>
+                  </button>
+                  <IconButton label="루트에 추가" onClick={() => addToRoute(place.id)}>
+                    <Plus size={17} />
+                  </IconButton>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function TodayScreen({
+  selectedDay,
+  selectedRoute,
+  done,
+  stats,
+  nextPlace,
+  recommendations,
+  setActiveTab,
+  setDay,
+  toggleDone,
+  checkedItems,
+  setCheckedItems,
+}: {
+  selectedDay: (typeof tripDays)[number];
+  selectedRoute: RouteItem[];
+  done: Record<string, boolean>;
+  stats: ReturnType<typeof routeStats>;
+  nextPlace?: Place;
+  recommendations: { place: Place; score: number; distance: number }[];
+  setActiveTab: (tab: TabKey) => void;
+  setDay: (id: string) => void;
+  toggleDone: (uid: string) => void;
+  checkedItems: Record<string, boolean>;
+  setCheckedItems: Dispatch<SetStateAction<Record<string, boolean>>>;
+}) {
+  const nextGoogle = nextPlace ? getPlaceScore(nextPlace, getEnhancement(nextPlace)) : undefined;
+
+  return (
+    <section className="screen">
+      <div className="screen-header">
+        <div>
+          <p className="eyebrow">Today</p>
+          <h1>{selectedDay.title}</h1>
+          <p className="subline">
+            {selectedDay.label} · {cityLabels[selectedDay.city]} · {selectedDay.areaFocus}
+          </p>
+        </div>
+        <button className="solid-button" onClick={() => setActiveTab("map")}>
+          <MapIcon size={17} />
+          지도
+        </button>
+      </div>
+      <DayStrip selectedDayId={selectedDay.id} setDay={setDay} />
+
+      <div className="today-grid">
+        <section className="hero-panel">
+          <span className="label">다음 목적지</span>
+          <h2>{nextPlace?.koName ?? "코스를 직접 만들어보세요"}</h2>
+          <p>{nextPlace?.why ?? "지도나 랭킹에서 장소를 추가하거나, 추천 코스를 선택 적용하면 오늘 루트가 만들어진다."}</p>
+          {nextGoogle && (
+            <div className="hero-meta">
+              <span>
+                <Star size={14} /> {nextGoogle.ratingText}
+              </span>
+              {nextGoogle.reviewCountLabel && <span>{nextGoogle.reviewCountLabel}</span>}
+              <span>혼잡 {nextGoogle.crowdLevel}</span>
+            </div>
+          )}
+          {nextPlace && (
+            <div className="hero-actions">
+              <a className="solid-button compact" href={makeGooglePlaceUrl(nextPlace)} target="_blank" rel="noreferrer">
+                <Navigation size={16} />
+                Maps
+              </a>
+              <button className="ghost-button compact" onClick={() => setActiveTab("map")}>
+                <Route size={16} />
+                루트
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="metric-grid">
+          <div className="metric">
+            <Route size={18} />
+            <strong>{formatDistanceKm(stats.km)}</strong>
+            <span>직선 합산</span>
+          </div>
+          <div className="metric">
+            <Navigation size={18} />
+            <strong>{stats.walkMin}분</strong>
+            <span>도보 감각</span>
+          </div>
+          <div className="metric">
+            <AlertTriangle size={18} />
+            <strong>{stats.caution}</strong>
+            <span>주의 핀</span>
+          </div>
+          <div className="metric">
+            <Star size={18} />
+            <strong>{stats.must}</strong>
+            <span>Must</span>
+          </div>
+        </section>
+      </div>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>오늘 루트</h2>
+          <a className={selectedRoute.length ? "text-link" : "text-link muted-link"} href={makeDirectionsUrl(selectedRoute)} target="_blank" rel="noreferrer">
+            Google Maps <ExternalLink size={14} />
+          </a>
+        </div>
+        <div className="timeline">
+          {selectedRoute.length === 0 && (
+            <div className="empty-route">
+              <strong>아직 만든 코스가 없어요.</strong>
+              <p>추천 코스를 그대로 적용하거나, 지도에서 원하는 장소만 골라 추가하세요.</p>
+            </div>
+          )}
+          {selectedRoute.map((item, index) => {
+            const place = getPlace(item.placeId);
+            const google = getPlaceScore(place);
+            return (
+              <div key={item.uid} className={done[item.uid] ? "timeline-item done" : "timeline-item"}>
+                <button className="timeline-check" onClick={() => toggleDone(item.uid)}>
+                  {done[item.uid] ? <Check size={16} /> : index + 1}
+                </button>
+                <div className="timeline-detail">
+                  <PlaceThumb place={place} order={index + 1} />
+                  <div>
+                    <strong>{place.koName}</strong>
+                    <p>
+                      {item.time ? `${item.time} · ` : ""}
+                      {place.area} · {place.durationMin}분 · {google.ratingText} · {place.safety}
+                    </p>
+                    {item.note && <small>{item.note}</small>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>상황별 선택</h2>
+          <Pill>근처 후보</Pill>
+        </div>
+        <div className="choice-grid">
+          {recommendations.slice(0, 3).map(({ place, distance }) => {
+            const google = getPlaceScore(place);
+            return (
+              <a className="choice-card" key={place.id} href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+                <span>
+                  {categoryLabels[place.category]} · {google.ratingText}
+                </span>
+                <strong>{place.koName}</strong>
+                <small>
+                  {formatDistanceKm(distance)} · {place.bestTime} · 혼잡 {google.crowdLevel}
+                </small>
+              </a>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>체크</h2>
+          <Pill tone="warn">당일</Pill>
+        </div>
+        <div className="check-list">
+          {selectedDay.checklist.map((item) => {
+            const key = `${selectedDay.id}::${item}`;
+            return (
+              <label key={item}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(checkedItems[key])}
+                  onChange={() => setCheckedItems((current) => ({ ...current, [key]: !current[key] }))}
+                />
+                <span>{item}</span>
+              </label>
+            );
+          })}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function PlanScreen({
+  selectedDayId,
+  setDay,
+  routes,
+  setActiveTab,
+  applyRecommendedRoute,
+}: {
+  selectedDayId: string;
+  setDay: (id: string) => void;
+  routes: Record<string, RouteItem[]>;
+  setActiveTab: (tab: TabKey) => void;
+  applyRecommendedRoute: (dayId: string) => void;
+}) {
+  return (
+    <section className="screen">
+      <div className="screen-header">
+        <div>
+          <p className="eyebrow">Plan</p>
+          <h1>6/19-6/28 마스터 일정</h1>
+          <p className="subline">로마 5박 흐름, 6/24 이동, 피렌체 4박 흐름</p>
+        </div>
+      </div>
+      <div className="plan-list">
+        {tripDays.map((day) => {
+          const route = routes[day.id] ?? [];
+          const recommended = recommendedRoutes[day.id] ?? [];
+          const mustCount = route.filter((item) => getPlace(item.placeId).priority === 1).length;
+          return (
+            <article key={day.id} className={selectedDayId === day.id ? "day-card active" : "day-card"}>
+              <button
+                className="day-card-head"
+                onClick={() => {
+                  setDay(day.id);
+                  setActiveTab("map");
+                }}
+              >
+                <span>
+                  <small>
+                    {day.label} · {cityLabels[day.city]}
+                  </small>
+                  <strong>{day.title}</strong>
+                </span>
+                <ChevronRight size={20} />
+              </button>
+              <p>{day.areaFocus}</p>
+              <div className="plan-section-label">내 코스</div>
+              <div className="mini-route">
+                {route.length === 0 && <span>아직 비어 있음</span>}
+                {route.slice(0, 7).map((item) => (
+                  <span key={item.uid}>{getPlace(item.placeId).koName}</span>
+                ))}
+              </div>
+              <div className="day-card-footer">
+                <Pill tone={mustCount > 3 ? "must" : "plain"}>Must {mustCount}</Pill>
+                <Pill>{route.length} stops</Pill>
+                <a className={route.length ? "" : "muted-link"} href={makeDirectionsUrl(route)} target="_blank" rel="noreferrer">
+                  Maps <ExternalLink size={13} />
+                </a>
+              </div>
+              <div className="plan-section-label">추천안</div>
+              <div className="mini-route recommendation-mini">
+                {recommended.slice(0, 8).map((item) => (
+                  <span key={item.uid}>{getPlace(item.placeId).koName}</span>
+                ))}
+              </div>
+              <div className="card-actions plan-actions">
+                <button
+                  className="ghost-button compact"
+                  onClick={() => {
+                    applyRecommendedRoute(day.id);
+                    setDay(day.id);
+                    setActiveTab("map");
+                  }}
+                >
+                  <RefreshCw size={16} />
+                  추천안 적용
+                </button>
+                <button
+                  className="solid-button compact"
+                  onClick={() => {
+                    setDay(day.id);
+                    setActiveTab("map");
+                  }}
+                >
+                  <MapIcon size={16} />
+                  직접 편집
+                </button>
+              </div>
+              <div className="fallbacks">
+                {day.fallback.map((item) => (
+                  <span key={item}>{item}</span>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RankingScreen({
+  rankingCategory,
+  setRankingCategory,
+  rankingCity,
+  setRankingCity,
+  query,
+  setQuery,
+  addToRoute,
+  setSelectedPlaceId,
+  setActiveTab,
+}: {
+  rankingCategory: PlaceCategory | "all";
+  setRankingCategory: (category: PlaceCategory | "all") => void;
+  rankingCity: "all" | "rome" | "florence";
+  setRankingCity: (city: "all" | "rome" | "florence") => void;
+  query: string;
+  setQuery: (value: string) => void;
+  addToRoute: (id: string) => void;
+  setSelectedPlaceId: (id: string) => void;
+  setActiveTab: (tab: TabKey) => void;
+}) {
+  const categories: (PlaceCategory | "all")[] = ["all", "attraction", "food", "cafe", "view", "shopping"];
+  const filtered = places
+    .filter((place) => place.priority <= 2)
+    .filter((place) => place.category !== "stay" && place.category !== "station")
+    .filter((place) => rankingCategory === "all" || place.category === rankingCategory)
+    .filter((place) => rankingCity === "all" || place.city === rankingCity)
+    .filter((place) => `${place.koName} ${place.name} ${place.area} ${place.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => b.rank - a.rank);
+
+  const clusters = Array.from(
+    places
+      .filter((place) => place.priority <= 2 && place.category !== "stay" && place.category !== "station")
+      .reduce((map, place) => {
+        const key = `${cityLabels[place.city]} · ${place.area}`;
+        const current = map.get(key) ?? [];
+        current.push(place);
+        map.set(key, current);
+        return map;
+      }, new Map<string, Place[]>())
+  ).sort((a, b) => b[1].reduce((sum, place) => sum + place.rank, 0) - a[1].reduce((sum, place) => sum + place.rank, 0));
+
+  return (
+    <section className="screen">
+      <div className="screen-header">
+        <div>
+          <p className="eyebrow">Ranking</p>
+          <h1>중요 장소만</h1>
+          <p className="subline">Must와 Good 위주, 낮은 우선순위는 제외</p>
+        </div>
+      </div>
+
+      <div className="rank-controls">
+        <div className="segmented">
+          {(["all", "rome", "florence"] as const).map((city) => (
+            <button key={city} className={rankingCity === city ? "active" : ""} onClick={() => setRankingCity(city)}>
+              {city === "all" ? "전체" : cityLabels[city]}
+            </button>
+          ))}
+        </div>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="장소, 권역, 태그 검색" />
+      </div>
+
+      <div className="filter-row">
+        {categories.map((category) => (
+          <button
+            key={category}
+            className={rankingCategory === category ? "filter-chip active" : "filter-chip"}
+            onClick={() => setRankingCategory(category)}
+          >
+            {category === "all" ? "전체" : categoryLabels[category]}
+          </button>
+        ))}
+      </div>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>권역 묶음</h2>
+          <Pill>동선 기준</Pill>
+        </div>
+        <div className="cluster-row">
+          {clusters.slice(0, 8).map(([area, list]) => (
+            <button
+              key={area}
+              onClick={() => {
+                setQuery(area.split(" · ")[1]);
+              }}
+            >
+              <strong>{area}</strong>
+              <span>{list.slice(0, 4).map((place) => place.koName).join(", ")}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="place-list">
+        {filtered.map((place, index) => {
+          const google = getPlaceScore(place, getEnhancement(place));
+          return (
+            <article key={place.id} className="place-card">
+              <div className="place-rank">{index + 1}</div>
+              <div className="place-card-main">
+                <div className="place-title-row">
+                  <div>
+                    <small>
+                      {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
+                    </small>
+                    <h2>{place.koName}</h2>
+                  </div>
+                  <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
+                </div>
+                <p>{place.why}</p>
+                <div className="place-meta">
+                  <span>
+                    <Star size={14} /> {google.ratingText}
+                    {google.reviewCountLabel ? ` · ${google.reviewCountLabel}` : ""}
+                  </span>
+                  <span>{google.priceLevel}</span>
+                  <span>혼잡 {google.crowdLevel}</span>
+                  <span>
+                    <ClockIcon /> {place.durationMin}분
+                  </span>
+                  <span>
+                    <Camera size={14} /> 사진 {place.photo}
+                  </span>
+                  <span>
+                    <Shield size={14} /> {place.safety}
+                  </span>
+                  <span>{place.reservation}</span>
+                </div>
+                <div className="tag-row">
+                  {place.tags.slice(0, 5).map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+                <div className="card-actions">
+                  <button
+                    className="ghost-button compact"
+                    onClick={() => {
+                      setSelectedPlaceId(place.id);
+                      setActiveTab("map");
+                    }}
+                  >
+                    <MapPin size={16} /> 지도
+                  </button>
+                  <button className="solid-button compact" onClick={() => addToRoute(place.id)}>
+                    <Plus size={16} /> 추가
+                  </button>
+                  <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+                    Maps <ExternalLink size={14} />
+                  </a>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ClockIcon() {
+  return <span className="clock-dot" aria-hidden="true" />;
+}
+
+function MoreScreen({
+  moreSection,
+  setMoreSection,
+  checkedItems,
+  setCheckedItems,
+  copyPhrase,
+}: {
+  moreSection: MoreKey;
+  setMoreSection: (key: MoreKey) => void;
+  checkedItems: Record<string, boolean>;
+  setCheckedItems: Dispatch<SetStateAction<Record<string, boolean>>>;
+  copyPhrase: (text: string) => void;
+}) {
+  const sections: { key: MoreKey; label: string; icon: ElementType }[] = [
+    { key: "safety", label: "안전", icon: Shield },
+    { key: "korean", label: "한국인", icon: Home },
+    { key: "foodGuide", label: "음식", icon: Utensils },
+    { key: "phrases", label: "회화", icon: Languages },
+    { key: "checklist", label: "체크", icon: ListChecks },
+    { key: "exports", label: "지도파일", icon: Download },
+    { key: "sources", label: "출처", icon: FileText },
+  ];
+
+  return (
+    <section className="screen">
+      <div className="screen-header">
+        <div>
+          <p className="eyebrow">More</p>
+          <h1>안전, 회화, 내보내기</h1>
+          <p className="subline">현장에서 자주 쓰는 것만 모음</p>
+        </div>
+      </div>
+
+      <div className="more-tabs">
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <button key={section.key} className={moreSection === section.key ? "active" : ""} onClick={() => setMoreSection(section.key)}>
+              <Icon size={17} />
+              {section.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {moreSection === "safety" && (
+        <div className="info-list">
+          {safetyNotes.map((note) => (
+            <article key={note.title} className="info-card">
+              <div className="section-title-row">
+                <h2>{note.title}</h2>
+                <Pill tone={note.severity === "높음" ? "warn" : "plain"}>{note.severity}</Pill>
+              </div>
+              <p>{note.detail}</p>
+            </article>
+          ))}
+          <article className="info-card emergency-card">
+            <div className="section-title-row">
+              <h2>비상 연락</h2>
+              <Pill tone="warn">112</Pill>
+            </div>
+            <p>EU 긴급번호 112. 도난/분실은 숙소 프런트, 경찰서, 카드사 앱 순서로 처리.</p>
+          </article>
+        </div>
+      )}
+
+      {moreSection === "korean" && (
+        <div className="info-list">
+          {koreanTravelGuides.map((guide) => (
+            <article key={guide.title} className="info-card">
+              <div className="section-title-row">
+                <h2>{guide.title}</h2>
+                <Pill tone="ok">K-Mode</Pill>
+              </div>
+              <ul className="guide-list">
+                {guide.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+          <article className="info-card emergency-card">
+            <div className="section-title-row">
+              <h2>한국인 긴급 연락</h2>
+              <Pill tone="warn">저장</Pill>
+            </div>
+            <p>주이탈리아 대한민국 대사관: 근무시간 대표번호 +39 06 420 402 1, 근무시간 외 긴급전화 +39 335 185 0499. 현지 긴급번호는 112.</p>
+          </article>
+        </div>
+      )}
+
+      {moreSection === "foodGuide" && (
+        <div className="info-list">
+          {foodOrderGuides.map((guide) => (
+            <article key={guide.title} className="info-card">
+              <div className="section-title-row">
+                <h2>{guide.title}</h2>
+                <Pill>{guide.city}</Pill>
+              </div>
+              <ul className="guide-list">
+                {guide.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {moreSection === "phrases" && (
+        <div className="phrase-list">
+          {phraseGroups.map((group) => (
+            <section key={group.title} className="content-band">
+              <div className="section-title-row">
+                <h2>{group.title}</h2>
+                <Pill>{group.lines.length}</Pill>
+              </div>
+              {group.lines.map((line) => (
+                <div className="phrase-row" key={line.it}>
+                  <button onClick={() => copyPhrase(line.it)}>
+                    <strong>{line.it}</strong>
+                    <span>{line.sound}</span>
+                    <small>{line.ko}</small>
+                  </button>
+                  <IconButton label="복사" onClick={() => copyPhrase(line.it)}>
+                    <Copy size={16} />
+                  </IconButton>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+
+      {moreSection === "checklist" && (
+        <section className="content-band">
+          <div className="section-title-row">
+            <h2>준비물</h2>
+            <Pill>{packingChecklist.filter((item) => checkedItems[item]).length}/{packingChecklist.length}</Pill>
+          </div>
+          <div className="check-list large">
+            {packingChecklist.map((item) => (
+              <label key={item}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(checkedItems[item])}
+                  onChange={() => setCheckedItems((current) => ({ ...current, [item]: !current[item] }))}
+                />
+                <span>{item}</span>
+              </label>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {moreSection === "exports" && (
+        <section className="content-band export-panel">
+          <div className="export-actions">
+            <button className="solid-button" onClick={exportCsv}>
+              <Download size={17} />
+              CSV
+            </button>
+            <button className="ghost-button" onClick={exportKml}>
+              <Download size={17} />
+              KML
+            </button>
+          </div>
+          <div className="export-grid">
+            <div>
+              <MapPin size={20} />
+              <strong>{places.filter((place) => place.priority <= 2).length}</strong>
+              <span>핀</span>
+            </div>
+            <div>
+              <Star size={20} />
+              <strong>{places.filter((place) => place.priority === 1).length}</strong>
+              <span>Must</span>
+            </div>
+            <div>
+              <Train size={20} />
+              <strong>2</strong>
+              <span>도시</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {moreSection === "sources" && (
+        <div className="source-list">
+          {sources.map((source) => (
+            <a key={source.id} className="source-row" href={source.url} target="_blank" rel="noreferrer">
+              <span>
+                <strong>{source.label}</strong>
+                <small>{source.note}</small>
+              </span>
+              <ExternalLink size={16} />
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
