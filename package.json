@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "check:data": "node scripts/check-data.mjs",
-    "build": "npm run check:data && tsc -b && vite build",
+    "check:routes": "node scripts/check-route-ops.mjs",
+    "build": "npm run check:data && npm run check:routes && tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

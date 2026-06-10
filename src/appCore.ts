@@ -13,7 +13,10 @@ import { extraPlaces, extraSources } from "./extraData";
 import { morePlaces } from "./morePlaces";
 import { tripTemplates } from "./templates";
 import { placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
+import type { RouteItem } from "./lib/routes";
 import { loadSlice } from "./lib/storage";
+
+export type { RouteItem } from "./lib/routes";
 
 export type TabKey = "map" | "today" | "plan" | "ranking" | "more";
 
@@ -49,14 +52,6 @@ export type AppSettings = {
   startTab?: TabKey;
   defaultMode?: ModeKey;
   appliedTemplateId?: string;
-};
-
-export type RouteItem = {
-  uid: string;
-  placeId: string;
-  locked?: boolean;
-  time?: string;
-  note?: string;
 };
 
 export type GooglePlaceMeta = NonNullable<PlaceEnhancement["google"]>;

@@ -16,6 +16,15 @@ import {
 import { tripTemplates } from "./templates";
 import { loadSlice, saveSlice } from "./lib/storage";
 import {
+  appendRouteItems,
+  cloneRoute,
+  moveRouteItem as moveRoute,
+  removePlaceFromRoutes,
+  removeRouteItem as removeRoute,
+  replaceFirstRouteItem,
+  sanitizeRoutes,
+} from "./lib/routes";
+import {
   activeTemplateRoutes,
   applyHotelSettings,
   getPlace,
@@ -60,20 +69,12 @@ function downloadFile(name: string, content: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function cloneRoute(dayId: string, route: RouteItem[], prefix = "route") {
-  return route.map((item, index) => ({
-    ...item,
-    uid: `${dayId}-${prefix}-${Date.now()}-${index}-${item.placeId}`,
-  }));
+function routeMutationToken() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// 루트 끝이 "숙소 복귀(잠금)"면 그 앞에 끼워넣는다 — 모든 추가 경로의 단일 규칙
-function insertBeforeHotelReturn(items: RouteItem[], newItems: RouteItem[]): RouteItem[] {
-  const next = [...items];
-  const last = next[next.length - 1];
-  const insertAt = last && last.locked && getPlace(last.placeId).category === "stay" ? next.length - 1 : next.length;
-  next.splice(insertAt, 0, ...newItems);
-  return next;
+function isTerminalHotelReturn(item: RouteItem) {
+  return Boolean(item.locked && getPlace(item.placeId).category === "stay");
 }
 
 // 이탈리아 6월(CEST, UTC+2) 기준 일몰 시각 — 천문 알고리즘 계산값, 오차 ±수 분
@@ -114,20 +115,8 @@ const cityCenters: Record<City, { lat: number; lng: number }> = {
   florence: { lat: 43.7696, lng: 11.2558 },
 };
 
-function sanitizeRoutes(parsed: unknown): Record<string, RouteItem[]> {
-  if (!parsed || typeof parsed !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(parsed as Record<string, RouteItem[]>).map(([dayId, items]) => [
-      dayId,
-      Array.isArray(items)
-        ? items.filter((item) => item && placesById.has(item.placeId)).map((item) => ({ ...item }))
-        : [],
-    ])
-  );
-}
-
 function loadStoredRoutes(): Record<string, RouteItem[]> {
-  return sanitizeRoutes(loadSlice("routes", {}));
+  return sanitizeRoutes(loadSlice("routes", {}), (placeId) => placesById.has(placeId));
 }
 
 // 기본은 빈 일정. 단, 이전 버전에서 루트를 만들어둔 흔적이 있으면 템플릿 일정으로 복원해 데이터를 살린다.
@@ -433,9 +422,7 @@ export default function App() {
     unregisterPlace(placeId);
     setCustomPlaces((current) => current.filter((place) => place.id !== placeId));
     setRoutes((current) =>
-      Object.fromEntries(
-        Object.entries(current).map(([dayId, items]) => [dayId, items.filter((item) => item.placeId !== placeId)])
-      )
+      removePlaceFromRoutes(current, placeId)
     );
     if (selectedPlaceId === placeId) setSelectedPlaceId(places[0].id);
     setToast("내 장소 삭제됨");
@@ -444,9 +431,9 @@ export default function App() {
   function addToRoute(placeId: string) {
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
-      if (items.some((item) => item.placeId === placeId)) return current;
       const newItem = { uid: `${selectedDay.id}-custom-${Date.now()}-${placeId}`, placeId };
-      return { ...current, [selectedDay.id]: insertBeforeHotelReturn(items, [newItem]) };
+      const next = appendRouteItems(items, [newItem], isTerminalHotelReturn);
+      return next === items ? current : { ...current, [selectedDay.id]: next };
     });
     setSelectedPlaceId(placeId);
     setToast("루트에 추가됨");
@@ -456,18 +443,22 @@ export default function App() {
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
       // 잠긴 일정(예약/기차)과 숙소·역은 교체 대상에서 제외
-      const index = items.findIndex((item) => {
-        if (done[item.uid] || item.locked) return false;
-        const category = getPlace(item.placeId).category;
-        return category !== "stay" && category !== "station";
-      });
-      if (index < 0) {
+      const replaced = replaceFirstRouteItem(
+        items,
+        { placeId, note: "현장 교체" },
+        (item) => {
+          if (done[item.uid] || item.locked) return false;
+          const category = getPlace(item.placeId).category;
+          return category !== "stay" && category !== "station";
+        }
+      );
+      if (!replaced) {
         const newItem = { uid: `${selectedDay.id}-custom-${Date.now()}-${placeId}`, placeId, note: "추천으로 추가" };
-        return { ...current, [selectedDay.id]: insertBeforeHotelReturn(items, [newItem]) };
+        const next = appendRouteItems(items, [newItem], isTerminalHotelReturn);
+        return next === items ? current : { ...current, [selectedDay.id]: next };
       }
-      const next = [...items];
-      next[index] = { ...next[index], placeId, note: "현장 교체" };
-      return { ...current, [selectedDay.id]: next };
+      if (replaced === items) return current;
+      return { ...current, [selectedDay.id]: replaced };
     });
     setSelectedPlaceId(placeId);
     setToast("다음 후보로 교체됨");
@@ -476,21 +467,16 @@ export default function App() {
   function removeRouteItem(uid: string) {
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
-      const target = items.find((entry) => entry.uid === uid);
-      if (target?.locked) return current;
-      return { ...current, [selectedDay.id]: items.filter((entry) => entry.uid !== uid) };
+      const next = removeRoute(items, uid);
+      return next === items ? current : { ...current, [selectedDay.id]: next };
     });
   }
 
   function moveRouteItem(index: number, direction: -1 | 1) {
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
-      const target = index + direction;
-      if (target < 0 || target >= items.length) return current;
-      if (items[index].locked || items[target].locked) return current;
-      const next = [...items];
-      [next[index], next[target]] = [next[target], next[index]];
-      return { ...current, [selectedDay.id]: next };
+      const next = moveRoute(items, index, direction);
+      return next === items ? current : { ...current, [selectedDay.id]: next };
     });
   }
 
@@ -573,7 +559,7 @@ export default function App() {
           setDays(data.days);
           setSelectedDayId(data.days[0]?.id ?? "");
         }
-        if (data.routes) setRoutes(sanitizeRoutes(data.routes));
+        if (data.routes) setRoutes(sanitizeRoutes(data.routes, (placeId) => placesById.has(placeId)));
         if (data.done) setDone(data.done);
         if (data.checks) setCheckedItems(data.checks);
         if (data.notes) setNotes(data.notes);
@@ -605,15 +591,19 @@ export default function App() {
       const recommended = cloneRoute(
         selectedDay.id,
         (activeTemplateRoutes()[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
-        mode === "replace" ? "apply" : "append"
+        mode === "replace" ? "apply" : "append",
+        routeMutationToken()
       );
       if (mode === "replace") return { ...current, [selectedDay.id]: recommended };
+      const next = appendRouteItems(
+        currentItems,
+        recommended.filter((item) => getPlace(item.placeId).category !== "stay"),
+        isTerminalHotelReturn
+      );
+      if (next === currentItems) return current;
       return {
         ...current,
-        [selectedDay.id]: insertBeforeHotelReturn(
-          currentItems,
-          recommended.filter((item) => getPlace(item.placeId).category !== "stay")
-        ),
+        [selectedDay.id]: next,
       };
     });
     setToast(mode === "replace" ? "추천 코스 적용됨" : "추천 장소 추가됨");
@@ -692,7 +682,10 @@ export default function App() {
                 const day = days.find((item) => item.id === dayId);
                 if (!day) return;
                 setSelectedDayId(dayId);
-                setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, activeTemplateRoutes()[dayId] ?? [], "plan-apply") }));
+                setRoutes((current) => ({
+                  ...current,
+                  [dayId]: cloneRoute(dayId, activeTemplateRoutes()[dayId] ?? [], "plan-apply", routeMutationToken()),
+                }));
                 setToast("추천 코스 적용됨");
               }}
             />

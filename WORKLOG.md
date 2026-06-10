@@ -184,3 +184,13 @@ type TripTemplate = {
 - 중복 ID, 좌표 범위, placeId/pairWith/sourceIds 참조, 필수 출처, 이미지 원출처, Google 확인일 검증
 - 기존 217 ids 표기는 일정·출처 ID가 섞인 오집계였으며 실제 장소는 179개로 확인
 - `npm run check:data`를 추가하고 `npm run build` 선행 단계로 연결
+
+---
+
+## 2026-06-10 후속 세션 — F3 루트 조작 순수 함수화
+
+- `RouteItem`과 루트 조작을 `src/lib/routes.ts`로 이동
+- 추가 시 중복 제거 + 마지막 잠금 숙소 앞 삽입 규칙 통합
+- 현장 교체 대상 선정, 잠금 삭제·이동 차단, 사용자 장소 전 일정 제거, 저장 루트 정제 함수화
+- `scripts/check-route-ops.mjs`로 핵심 규칙 자동 검증, `npm run build` 선행 단계로 연결
+- 390px 독립 테스트 저장 공간에서 템플릿 적용·추천 장소 추가·숙소 마지막 유지 확인, 콘솔 오류 0
