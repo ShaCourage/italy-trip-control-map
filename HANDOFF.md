@@ -86,7 +86,7 @@ GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거
 - **A3 배포 마무리** — 위 "사용자 결정 필요" 해결 → deploy.yml push 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 추가 + 비행기 모드로 오프라인 확인
 - **F1 구조 분리(완료)** — `App.tsx` 약 3,200줄 → 약 800줄. `appCore.ts`, 공용 UI, `MapScreen`, `RankingScreen`, `TodayScreen`, `PlanScreen`, `MoreScreen` 분리 및 lazy loading 적용. vendor 청크 분리로 500kB 경고 제거
 - **사진 미해결 6곳** — 위키 문서가 없는 식당들(roscioli, armando-al-pantheon, sant-eustachio, tazza-doro, buca-lapi, forno-campo-de-fiori). 직접 찍은 사진이나 무료 이미지 수동 지정 가능 (`placeEnhancements.ts`의 `imageUrl`)
-- **문서함 UX** — 문서 수정, 타입 필터, URL 검증 (기존 백로그 유지)
+- **문서함 UX(완료)** — 유형 선택·필터, 문서 수정, HTTP(S) URL 검증 및 기존 문서 `기타` 유형 마이그레이션
 
 ## 다음 PC에서 바로 확인할 명령
 

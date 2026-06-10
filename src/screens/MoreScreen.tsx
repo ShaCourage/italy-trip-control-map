@@ -9,6 +9,7 @@ import {
   Languages,
   ListChecks,
   MapPin,
+  Pencil,
   Plus,
   Settings as SettingsIcon,
   Shield,
@@ -32,13 +33,8 @@ import {
 } from "../appCore";
 import type { AppSettings, ModeKey, TabKey } from "../appCore";
 import { IconButton, Pill } from "../components/place";
-
-export type TripDoc = {
-  id: string;
-  title: string;
-  url?: string;
-  memo?: string;
-};
+import { docTypeLabels, normalizeDocUrl } from "../lib/docs";
+import type { DocType, TripDoc, TripDocInput } from "../lib/docs";
 
 export type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "docs" | "data";
 
@@ -135,29 +131,68 @@ ${placemarks}
   );
 }
 
-function DocAddForm({ onAdd }: { onAdd: (input: { title: string; url?: string; memo?: string }) => void }) {
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [memo, setMemo] = useState("");
+function DocForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial?: TripDoc;
+  onSave: (input: TripDocInput) => void;
+  onCancel?: () => void;
+}) {
+  const [type, setType] = useState<DocType>(initial?.type ?? "ticket");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [url, setUrl] = useState(initial?.url ?? "");
+  const [memo, setMemo] = useState(initial?.memo ?? "");
+  const [error, setError] = useState("");
 
   return (
-    <div className="custom-place-form">
+    <div className="custom-place-form doc-form">
+      <select value={type} onChange={(event) => setType(event.target.value as DocType)} aria-label="문서 유형">
+        {(Object.keys(docTypeLabels) as DocType[]).map((key) => (
+          <option key={key} value={key}>
+            {docTypeLabels[key]}
+          </option>
+        ))}
+      </select>
       <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="제목 (예: 콜로세움 예약)" />
       <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="링크 (선택)" inputMode="url" />
       <input value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="메모 (예: 예약번호, 입장 시간)" />
-      <button
-        className="solid-button compact"
-        disabled={!title.trim()}
-        onClick={() => {
-          if (!title.trim()) return;
-          onAdd({ title, url, memo });
-          setTitle("");
-          setUrl("");
-          setMemo("");
-        }}
-      >
-        <Plus size={15} /> 문서 추가
-      </button>
+      {error && <p className="form-error">{error}</p>}
+      <div className="doc-form-actions">
+        <button
+          className="solid-button compact"
+          disabled={!title.trim()}
+          onClick={() => {
+            if (!title.trim()) return;
+            try {
+              const normalizedUrl = normalizeDocUrl(url);
+              onSave({
+                type,
+                title: title.trim(),
+                url: normalizedUrl,
+                memo: memo.trim() || undefined,
+              });
+              setError("");
+              if (!initial) {
+                setTitle("");
+                setUrl("");
+                setMemo("");
+              }
+            } catch (reason) {
+              setError(reason instanceof Error ? reason.message : "링크 형식을 확인해주세요.");
+            }
+          }}
+        >
+          {initial ? <Check size={15} /> : <Plus size={15} />}
+          {initial ? "수정 저장" : "문서 추가"}
+        </button>
+        {onCancel && (
+          <button className="ghost-button compact" onClick={onCancel}>
+            취소
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -211,6 +246,7 @@ export default function MoreScreen({
   importBackup,
   docs,
   addDoc,
+  updateDoc,
   removeDoc,
 }: {
   moreSection: MoreKey;
@@ -223,9 +259,13 @@ export default function MoreScreen({
   exportBackup: () => void;
   importBackup: (file: File) => void;
   docs: TripDoc[];
-  addDoc: (input: { title: string; url?: string; memo?: string }) => void;
+  addDoc: (input: TripDocInput) => void;
+  updateDoc: (docId: string, input: TripDocInput) => void;
   removeDoc: (docId: string) => void;
 }) {
+  const [docFilter, setDocFilter] = useState<DocType | "all">("all");
+  const [editingDocId, setEditingDocId] = useState<string>();
+  const filteredDocs = docs.filter((doc) => docFilter === "all" || doc.type === docFilter);
   const sections: { key: MoreKey; label: string; icon: ElementType }[] = [
     { key: "safety", label: "안전·꿀팁", icon: Shield },
     { key: "foodGuide", label: "음식", icon: Utensils },
@@ -367,31 +407,69 @@ export default function MoreScreen({
               항공권, 기차, 미술관 예약의 링크와 번호를 모아두는 곳이에요. 여권 사본 같은 민감한 원본은 넣지
               마세요.
             </p>
-            <DocAddForm onAdd={addDoc} />
+            <DocForm onSave={addDoc} />
           </section>
+          <div className="filter-row doc-filter" aria-label="문서 유형 필터">
+            {(["all", ...Object.keys(docTypeLabels)] as (DocType | "all")[]).map((type) => (
+              <button
+                key={type}
+                className={docFilter === type ? "filter-chip active" : "filter-chip"}
+                onClick={() => setDocFilter(type)}
+              >
+                {type === "all" ? `전체 ${docs.length}` : `${docTypeLabels[type]} ${docs.filter((doc) => doc.type === type).length}`}
+              </button>
+            ))}
+          </div>
           {docs.length === 0 && (
             <article className="info-card">
               <p>아직 저장된 문서가 없어요. 예약 확정 메일의 링크나 예약 번호부터 추가해보세요.</p>
             </article>
           )}
-          {docs.map((doc) => (
+          {docs.length > 0 && filteredDocs.length === 0 && (
+            <article className="info-card">
+              <p>이 유형으로 저장된 문서가 없어요.</p>
+            </article>
+          )}
+          {filteredDocs.map((doc) => (
             <article key={doc.id} className="info-card doc-card">
-              <div className="section-title-row">
-                <h2>{doc.title}</h2>
-                <IconButton
-                  label="문서 삭제"
-                  onClick={() => {
-                    if (window.confirm(`'${doc.title}' 문서를 삭제할까요?`)) removeDoc(doc.id);
+              {editingDocId === doc.id ? (
+                <DocForm
+                  key={doc.id}
+                  initial={doc}
+                  onSave={(input) => {
+                    updateDoc(doc.id, input);
+                    setEditingDocId(undefined);
                   }}
-                >
-                  <X size={16} />
-                </IconButton>
-              </div>
-              {doc.memo && <p>{doc.memo}</p>}
-              {doc.url && (
-                <a className="text-link" href={doc.url} target="_blank" rel="noreferrer">
-                  열기 <ExternalLink size={14} />
-                </a>
+                  onCancel={() => setEditingDocId(undefined)}
+                />
+              ) : (
+                <>
+                  <div className="section-title-row">
+                    <div className="doc-title">
+                      <Pill>{docTypeLabels[doc.type]}</Pill>
+                      <h2>{doc.title}</h2>
+                    </div>
+                    <div className="doc-card-actions">
+                      <IconButton label="문서 수정" onClick={() => setEditingDocId(doc.id)}>
+                        <Pencil size={16} />
+                      </IconButton>
+                      <IconButton
+                        label="문서 삭제"
+                        onClick={() => {
+                          if (window.confirm(`'${doc.title}' 문서를 삭제할까요?`)) removeDoc(doc.id);
+                        }}
+                      >
+                        <X size={16} />
+                      </IconButton>
+                    </div>
+                  </div>
+                  {doc.memo && <p>{doc.memo}</p>}
+                  {doc.url && (
+                    <a className="text-link" href={doc.url} target="_blank" rel="noreferrer">
+                      열기 <ExternalLink size={14} />
+                    </a>
+                  )}
+                </>
               )}
             </article>
           ))}

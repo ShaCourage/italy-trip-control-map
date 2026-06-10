@@ -32,7 +32,9 @@ import {
 import type { AppSettings, FilterKey, ModeKey, RouteItem, TabKey } from "./appCore";
 import { Pill } from "./components/place";
 import { DayAddForm } from "./components/schedule";
-import type { MoreKey, TripDoc } from "./screens/MoreScreen";
+import { normalizeTripDocs } from "./lib/docs";
+import type { TripDoc, TripDocInput } from "./lib/docs";
+import type { MoreKey } from "./screens/MoreScreen";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
 const RankingScreen = lazy(() => import("./screens/RankingScreen"));
@@ -204,7 +206,7 @@ export default function App() {
   const [moreSection, setMoreSection] = useState<MoreKey>("safety");
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadSlice("checks", {}));
   const [notes, setNotes] = useState<Record<string, string>>(() => loadSlice("notes", {}));
-  const [docs, setDocs] = useState<TripDoc[]>(() => loadSlice<TripDoc[]>("docs", []));
+  const [docs, setDocs] = useState<TripDoc[]>(() => normalizeTripDocs(loadSlice<unknown>("docs", [])));
   const [toast, setToast] = useState("");
 
   const selectedDay = days.find((day) => day.id === selectedDayId) ?? days[0] ?? emptyDay;
@@ -510,12 +512,17 @@ export default function App() {
     });
   }
 
-  function addDoc(input: { title: string; url?: string; memo?: string }) {
+  function addDoc(input: TripDocInput) {
     setDocs((current) => [
       ...current,
-      { id: `doc-${Date.now()}`, title: input.title.trim(), url: input.url?.trim() || undefined, memo: input.memo?.trim() || undefined },
+      { id: `doc-${Date.now()}`, ...input },
     ]);
     setToast("문서 추가됨");
+  }
+
+  function updateDoc(docId: string, input: TripDocInput) {
+    setDocs((current) => current.map((doc) => (doc.id === docId ? { id: doc.id, ...input } : doc)));
+    setToast("문서 수정됨");
   }
 
   function removeDoc(docId: string) {
@@ -536,7 +543,7 @@ export default function App() {
     downloadFile(
       "italy-trip-backup.json",
       JSON.stringify(
-        { version: 5, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, notes, docs, settings },
+        { version: 6, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, notes, docs, settings },
         null,
         2
       ),
@@ -570,7 +577,7 @@ export default function App() {
         if (data.done) setDone(data.done);
         if (data.checks) setCheckedItems(data.checks);
         if (data.notes) setNotes(data.notes);
-        if (Array.isArray(data.docs)) setDocs(data.docs);
+        if (Array.isArray(data.docs)) setDocs(normalizeTripDocs(data.docs));
         if (data.settings) {
           applyHotelSettings(data.settings);
           setSettings(data.settings);
@@ -727,6 +734,7 @@ export default function App() {
               importBackup={importBackup}
               docs={docs}
               addDoc={addDoc}
+              updateDoc={updateDoc}
               removeDoc={removeDoc}
             />
           </Suspense>
