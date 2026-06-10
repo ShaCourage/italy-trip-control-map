@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-11 (문서 정리 + 다음 작업 정의)
+마지막 갱신: 2026-06-11 (장소 확장 + UI 한국어 통일)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -14,9 +14,11 @@
 - 작업 트리 깨끗, `origin/main`과 동기화됨
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
-- 데이터 규모: 장소 179 · 출처 29 · 보강 175 · 템플릿 4 · 실사진 70곳
+- 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 70곳
 - 동작 확인됨: 빈 셋업 → 템플릿 4종 적용, 루트 편집(잠금/숙소 복귀 규칙), 백업(v7)·복원,
-  문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 콘솔 에러 0
+  문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 서비스워커 자동 갱신, 콘솔 에러 0
+- UI 표기 원칙: 사용자가 보는 라벨은 한국어 우선. 장소명은 `원문명(발음, 뜻/성격)` 한 줄로 통일,
+  구글 평점 미검증 장소는 임의 평점 대신 내부 `인기 {rank}`만 표시.
 
 ---
 
@@ -37,15 +39,16 @@
 ### 1. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 현재 "대기")
 "기본/추가"라는 현재 구분은 작업 이력일 뿐 의미 없음. 도시별로 합친다.
 
-- 현 상태(분산): `src/data.ts`(1,386줄, `places`+`sources`+`tripDays`) ·
-  `src/extraData.ts`(2,885줄, `extraPlaces`+`extraSources`) · `src/morePlaces.ts`(991줄, `morePlaces`)
+- 현 상태(분산): `src/data.ts`(`places`+`sources`) ·
+  `src/extraData.ts`(`extraPlaces`+`extraSources`) · `src/morePlaces.ts`(`morePlaces`) ·
+  `src/sitePlaces.ts`(`sitePlaces`, 사이트 확장 수집분)
 - 목표: `src/data/places/rome.ts`, `src/data/places/florence.ts`로 도시별 분리
   (또는 최소한 단일 `places` 컬렉션으로 병합). `App.tsx`의 `basePlaces+extraPlaces+morePlaces`
   병합부(`appCore.ts`)도 단순화
 - **반드시 같이 고칠 것**: `scripts/check-data.mjs`가 파일 경로/컬렉션명을 하드코딩함
   (`placeFiles`/`sourceFiles`/`routeFiles` 배열, 5~14행). 데이터 파일을 옮기면 이 배열을 갱신해야
   `npm run check:data`가 통과
-- 검증: `npm run build`(검사 통과) + 장소 179개 수 유지 + 프리뷰 장소 탭/지도 렌더 + 콘솔 0
+- 검증: `npm run build`(검사 통과) + 장소 248개 수 유지 + 프리뷰 장소 탭/지도 렌더 + 콘솔 0
 
 ### 2. 사진 미해결 6곳 (`src/placeEnhancements.ts`의 `imageUrl`)
 위키 문서가 없어 자동 굽기가 안 되는 식당들:
@@ -58,6 +61,10 @@
 ---
 
 ## 완료 (2026-06-11, Opus 세션 이어서)
+- **UI 한국어 통일 + 장소 확장** — 사용자 노출 문구에서 Must/Good/Maps/Google 혼용을 정리.
+  `src/sitePlaces.ts`에 사이트 기반 로마·피렌체 후보 69곳을 추가해 전체 248곳.
+  출처: Time Out, Eater 38/35, Condé Nast Traveler, Girl in Florence, Curious Appetite, Livingetc 등.
+  인기점수는 구글 평점 추정 없이 출처 중복·첫 방문 실용성·동선 적합도·예약 난이도 기준으로 내부 rank만 사용
 - **B4** 공식 영업시간/예약 링크 — `appCore.getOfficialSource()`가 `-official` 접미사 출처(콜로세움/판테온/
   바티칸/두오모/우피치/아카데미아)를 카드의 `.official-box`에 노출. 예약 필수·권장인데 공식 출처가 없으면
   구글 영업시간 검색 링크로 폴백. **추정 라벨 없음**(P1 준수)
