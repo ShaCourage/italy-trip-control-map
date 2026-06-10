@@ -61,7 +61,7 @@ export default function TodayScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">홈</p>
+          <p className="eyebrow">오늘</p>
           <h1>{selectedDay.title}</h1>
           <p className="subline">
             {selectedDay.label} · {cityLabels[selectedDay.city]} · {selectedDay.areaFocus}
@@ -225,6 +225,12 @@ export default function TodayScreen({
           <Pill tone="warn">당일</Pill>
         </div>
         <div className="check-list">
+          {selectedDay.checklist.length === 0 && (
+            <div className="empty-route">
+              <strong>오늘 체크리스트가 비어 있어요.</strong>
+              <p>일정 탭에서 날짜를 직접 만들었을 때는 필요한 준비물을 직접 메모로 관리하면 됩니다.</p>
+            </div>
+          )}
           {selectedDay.checklist.map((item) => {
             const key = `${selectedDay.id}::${item}`;
             return (

@@ -1727,6 +1727,32 @@ input:focus {
   margin-bottom: 2px;
 }
 
+.more-menu {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin-bottom: 10px;
+  padding: 2px 2px 8px;
+  scrollbar-width: none;
+}
+
+.more-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.more-menu-group {
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.more-menu-title {
+  display: block;
+  margin: 0 0 6px 2px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 800;
+}
+
 .more-tabs button {
   min-width: max-content;
   display: inline-flex;
@@ -1735,6 +1761,11 @@ input:focus {
   min-height: 38px;
   padding: 0 11px;
   font-weight: 800;
+}
+
+.quick-filter-row {
+  margin-top: -6px;
+  margin-bottom: 2px;
 }
 
 .info-card {

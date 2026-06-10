@@ -48,11 +48,11 @@ import type { BudgetCategory, BudgetCurrency, BudgetEntry } from "../lib/budget"
 export type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "docs" | "budget" | "data";
 
 const tabOptions: { key: TabKey; label: string }[] = [
-  { key: "today", label: "홈" },
+  { key: "today", label: "오늘" },
   { key: "map", label: "지도" },
   { key: "plan", label: "일정" },
   { key: "ranking", label: "장소" },
-  { key: "more", label: "더보기" },
+  { key: "more", label: "도구" },
 ];
 
 // 서비스워커·캐시를 비우고 새로고침 — 옛 캐시에 갇힌 기기의 탈출구
@@ -300,36 +300,56 @@ export default function MoreScreen({
   const [docFilter, setDocFilter] = useState<DocType | "all">("all");
   const [editingDocId, setEditingDocId] = useState<string>();
   const filteredDocs = docs.filter((doc) => docFilter === "all" || doc.type === docFilter);
-  const sections: { key: MoreKey; label: string; icon: ElementType }[] = [
-    { key: "safety", label: "안전·꿀팁", icon: Shield },
-    { key: "foodGuide", label: "음식", icon: Utensils },
-    { key: "phrases", label: "회화", icon: Languages },
-    { key: "checklist", label: "체크", icon: ListChecks },
-    { key: "docs", label: "문서함", icon: FileText },
-    { key: "budget", label: "예산", icon: Wallet },
-    { key: "data", label: "데이터·설정", icon: SettingsIcon },
+  const sectionGroups: { label: string; sections: { key: MoreKey; label: string; icon: ElementType }[] }[] = [
+    {
+      label: "현장",
+      sections: [
+        { key: "safety", label: "안전", icon: Shield },
+        { key: "foodGuide", label: "음식", icon: Utensils },
+        { key: "phrases", label: "회화", icon: Languages },
+      ],
+    },
+    {
+      label: "관리",
+      sections: [
+        { key: "checklist", label: "준비물", icon: ListChecks },
+        { key: "docs", label: "문서", icon: FileText },
+        { key: "budget", label: "예산", icon: Wallet },
+      ],
+    },
+    {
+      label: "설정",
+      sections: [{ key: "data", label: "설정", icon: SettingsIcon }],
+    },
   ];
 
   return (
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">더보기</p>
-          <h1>안전, 회화, 설정</h1>
-          <p className="subline">현장에서 자주 쓰는 것 + 숙소·백업 설정</p>
+          <p className="eyebrow">도구</p>
+          <h1>여행 도구</h1>
+          <p className="subline">현장에서는 안전·회화, 준비할 때는 문서·예산·설정을 빠르게</p>
         </div>
       </div>
 
-      <div className="more-tabs">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          return (
-            <button key={section.key} className={moreSection === section.key ? "active" : ""} onClick={() => setMoreSection(section.key)}>
-              <Icon size={17} />
-              {section.label}
-            </button>
-          );
-        })}
+      <div className="more-menu" aria-label="도구 메뉴">
+        {sectionGroups.map((group) => (
+          <div className="more-menu-group" key={group.label}>
+            <span className="more-menu-title">{group.label}</span>
+            <div className="more-tabs">
+              {group.sections.map((section) => {
+                const Icon = section.icon;
+                return (
+                  <button key={section.key} className={moreSection === section.key ? "active" : ""} onClick={() => setMoreSection(section.key)}>
+                    <Icon size={17} />
+                    {section.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {moreSection === "safety" && (

@@ -18,12 +18,34 @@ import { categoryShortLabels } from "../placeEnhancements";
 import { Pill, PlaceInsightCard, PlaceNameBlock, usePlaceMedia } from "../components/place";
 
 type RankSortKey = "popular" | "rating" | "fast";
+type QuickFilterKey = "all" | "must" | "reservation" | "free" | "korean" | "photo" | "indoor";
 
 const rankSortLabels: Record<RankSortKey, string> = {
   popular: "인기순",
   rating: "평점순",
   fast: "소요시간순",
 };
+
+const quickFilterLabels: Record<QuickFilterKey, string> = {
+  all: "전체",
+  must: "필수",
+  reservation: "예약",
+  free: "무료·저가",
+  korean: "한국인",
+  photo: "사진",
+  indoor: "실내",
+};
+
+function matchesQuickFilter(place: Place, filter: QuickFilterKey) {
+  if (filter === "all") return true;
+  if (filter === "must") return place.priority === 1;
+  if (filter === "reservation") return place.reservation === "필수" || place.reservation === "권장";
+  if (filter === "free") return place.price === "무료" || place.price === "낮음";
+  if (filter === "korean") return place.tags.includes("한국인선호") || Boolean(place.koreanTips?.length);
+  if (filter === "photo") return place.photo === 3;
+  if (filter === "indoor") return place.tags.includes("실내") || place.category === "cafe";
+  return true;
+}
 
 function CustomPlaceForm({
   onAdd,
@@ -115,7 +137,7 @@ function PlacePhotoCard({ place, rank, onOpen }: { place: Place; rank: number; o
           <PlaceNameBlock place={place} compact />
           <span className={score.isVerified ? "score-chip" : "score-chip internal"}>
             <Star size={13} />
-            {score.isVerified ? score.rating?.toFixed(1) : `${place.rank}점`}
+            {score.isVerified ? `구글 ${score.rating?.toFixed(1)}` : `인기 ${place.rank}`}
           </span>
         </h3>
         <p className="card-desc">{place.why}</p>
@@ -166,6 +188,7 @@ export default function RankingScreen({
 }) {
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [sortKey, setSortKey] = useState<RankSortKey>("popular");
+  const [quickFilter, setQuickFilter] = useState<QuickFilterKey>("all");
   const [detailId, setDetailId] = useState<string>();
   const customIds = new Set(customPlaces.map((place) => place.id));
   const categories: (PlaceCategory | "all")[] = ["all", "attraction", "food", "cafe", "view", "shopping"];
@@ -179,6 +202,7 @@ export default function RankingScreen({
     .filter((place) => place.category !== "stay" && place.category !== "station")
     .filter((place) => rankingCategory === "all" || place.category === rankingCategory)
     .filter((place) => rankingCity === "all" || place.city === rankingCity)
+    .filter((place) => matchesQuickFilter(place, quickFilter))
     .filter((place) =>
       `${place.koName} ${place.name} ${place.area} ${place.tags.join(" ")} ${(place.menuHints ?? []).join(" ")} ${(getEnhancement(place).highlights ?? []).join(" ")}`
         .toLowerCase()
@@ -252,6 +276,18 @@ export default function RankingScreen({
         ))}
       </div>
 
+      <div className="filter-row quick-filter-row" aria-label="빠른 조건">
+        {(Object.keys(quickFilterLabels) as QuickFilterKey[]).map((key) => (
+          <button
+            key={key}
+            className={quickFilter === key ? "filter-chip active" : "filter-chip"}
+            onClick={() => setQuickFilter(key)}
+          >
+            {quickFilterLabels[key]}
+          </button>
+        ))}
+      </div>
+
       <section className="content-band">
         <div className="section-title-row">
           <h2>권역 묶음</h2>
@@ -273,7 +309,9 @@ export default function RankingScreen({
       </section>
 
       <div className="sort-row">
-        <span>{filtered.length}곳 · {rankSortLabels[sortKey]} · 인기점수는 출처 중복과 동선 실용성 기준</span>
+        <span>
+          {filtered.length}곳 · {rankSortLabels[sortKey]} · {quickFilterLabels[quickFilter]} · 인기점수는 출처 중복과 동선 실용성 기준
+        </span>
         <select value={sortKey} onChange={(event) => setSortKey(event.target.value as RankSortKey)} aria-label="정렬 기준">
           {(Object.keys(rankSortLabels) as RankSortKey[]).map((key) => (
             <option key={key} value={key}>

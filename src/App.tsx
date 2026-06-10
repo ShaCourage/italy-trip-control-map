@@ -55,11 +55,11 @@ const PlanScreen = lazy(() => import("./screens/PlanScreen"));
 const MoreScreen = lazy(() => import("./screens/MoreScreen"));
 
 const tabItems = [
-  { key: "today" as const, label: "홈", icon: Home },
+  { key: "today" as const, label: "오늘", icon: Home },
   { key: "map" as const, label: "지도", icon: MapIcon },
   { key: "plan" as const, label: "일정", icon: CalendarDays },
   { key: "ranking" as const, label: "장소", icon: MapPin },
-  { key: "more" as const, label: "더보기", icon: MoreHorizontal },
+  { key: "more" as const, label: "도구", icon: MoreHorizontal },
 ];
 
 function downloadFile(name: string, content: string, type: string) {
