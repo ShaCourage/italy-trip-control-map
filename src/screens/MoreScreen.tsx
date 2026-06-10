@@ -17,6 +17,7 @@ import {
   Train,
   Upload,
   Utensils,
+  Wallet,
   X,
 } from "lucide-react";
 import { packingChecklist, phraseGroups, safetyNotes } from "../data";
@@ -31,12 +32,19 @@ import {
   places,
   sources,
 } from "../appCore";
-import type { AppSettings, ModeKey, TabKey } from "../appCore";
+import type { AppSettings, ModeKey, TabKey, TripDay } from "../appCore";
 import { IconButton, Pill } from "../components/place";
 import { docTypeLabels, normalizeDocUrl } from "../lib/docs";
 import type { DocType, TripDoc, TripDocInput } from "../lib/docs";
+import {
+  budgetCategories,
+  formatAmount,
+  formatTotals,
+  sumByCurrency,
+} from "../lib/budget";
+import type { BudgetCategory, BudgetCurrency, BudgetEntry } from "../lib/budget";
 
-export type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "docs" | "data";
+export type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "docs" | "budget" | "data";
 
 const tabOptions: { key: TabKey; label: string }[] = [
   { key: "today", label: "오늘" },
@@ -248,6 +256,10 @@ export default function MoreScreen({
   addDoc,
   updateDoc,
   removeDoc,
+  budget,
+  addBudgetEntry,
+  removeBudgetEntry,
+  days,
 }: {
   moreSection: MoreKey;
   setMoreSection: (key: MoreKey) => void;
@@ -262,6 +274,10 @@ export default function MoreScreen({
   addDoc: (input: TripDocInput) => void;
   updateDoc: (docId: string, input: TripDocInput) => void;
   removeDoc: (docId: string) => void;
+  budget: BudgetEntry[];
+  addBudgetEntry: (input: Omit<BudgetEntry, "id">) => void;
+  removeBudgetEntry: (id: string) => void;
+  days: TripDay[];
 }) {
   const [docFilter, setDocFilter] = useState<DocType | "all">("all");
   const [editingDocId, setEditingDocId] = useState<string>();
@@ -272,6 +288,7 @@ export default function MoreScreen({
     { key: "phrases", label: "회화", icon: Languages },
     { key: "checklist", label: "체크", icon: ListChecks },
     { key: "docs", label: "문서함", icon: FileText },
+    { key: "budget", label: "예산", icon: Wallet },
     { key: "data", label: "데이터·설정", icon: SettingsIcon },
   ];
 
@@ -476,6 +493,10 @@ export default function MoreScreen({
         </div>
       )}
 
+      {moreSection === "budget" && (
+        <BudgetSection budget={budget} addBudgetEntry={addBudgetEntry} removeBudgetEntry={removeBudgetEntry} days={days} />
+      )}
+
       {moreSection === "data" && (
         <div className="info-list">
           <section className="content-band settings-panel">
@@ -605,5 +626,125 @@ export default function MoreScreen({
         </div>
       )}
     </section>
+  );
+}
+
+function localISODate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function BudgetSection({
+  budget,
+  addBudgetEntry,
+  removeBudgetEntry,
+  days,
+}: {
+  budget: BudgetEntry[];
+  addBudgetEntry: (input: Omit<BudgetEntry, "id">) => void;
+  removeBudgetEntry: (id: string) => void;
+  days: TripDay[];
+}) {
+  const todayDefault = days.find((day) => day.id === localISODate())?.date ?? days[0]?.date ?? localISODate();
+  const [date, setDate] = useState(todayDefault);
+  const [label, setLabel] = useState("");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState<BudgetCurrency>("EUR");
+  const [category, setCategory] = useState<BudgetCategory>("식비");
+
+  const amountValue = parseFloat(amount);
+  const canAdd = label.trim().length > 0 && Number.isFinite(amountValue) && amountValue > 0 && Boolean(date);
+
+  // 날짜별 그룹 (최신 날짜 먼저)
+  const byDate = new Map<string, BudgetEntry[]>();
+  for (const entry of budget) {
+    const list = byDate.get(entry.date) ?? [];
+    list.push(entry);
+    byDate.set(entry.date, list);
+  }
+  const sortedDates = [...byDate.keys()].sort((a, b) => b.localeCompare(a));
+  const grandTotal = sumByCurrency(budget);
+
+  return (
+    <div className="info-list">
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>지출 기록</h2>
+          <Pill tone="ok">합계 {formatTotals(grandTotal)}</Pill>
+        </div>
+        <p className="settings-hint">하루에 얼마 썼는지 가볍게 적는 메모예요. EUR·KRW는 환율로 합치지 않고 따로 더합니다.</p>
+        <div className="budget-form">
+          <div className="budget-form-row">
+            <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="날짜" />
+            <select value={category} onChange={(event) => setCategory(event.target.value as BudgetCategory)} aria-label="분류">
+              {budgetCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+          <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="내용 (예: 점심 파스타)" />
+          <div className="budget-form-row">
+            <input
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="금액"
+              inputMode="decimal"
+            />
+            <select value={currency} onChange={(event) => setCurrency(event.target.value as BudgetCurrency)} aria-label="통화">
+              <option value="EUR">€ EUR</option>
+              <option value="KRW">₩ KRW</option>
+            </select>
+          </div>
+          <button
+            className="solid-button compact"
+            disabled={!canAdd}
+            onClick={() => {
+              if (!canAdd) return;
+              addBudgetEntry({ date, label: label.trim(), amount: amountValue, currency, category });
+              setLabel("");
+              setAmount("");
+            }}
+          >
+            <Plus size={15} /> 지출 추가
+          </button>
+        </div>
+      </section>
+
+      {budget.length === 0 && (
+        <article className="info-card">
+          <p>아직 기록한 지출이 없어요. 식비·교통·입장권부터 가볍게 적어보세요.</p>
+        </article>
+      )}
+
+      {sortedDates.map((d) => {
+        const entries = byDate.get(d) ?? [];
+        const dayLabel = days.find((day) => day.date === d)?.label ?? d;
+        const dayTotal = sumByCurrency(entries);
+        return (
+          <section className="content-band" key={d}>
+            <div className="section-title-row">
+              <h2>{dayLabel}</h2>
+              <Pill>{formatTotals(dayTotal)}</Pill>
+            </div>
+            <div className="budget-list">
+              {entries.map((entry) => (
+                <div className="budget-item" key={entry.id}>
+                  <div>
+                    <strong>{entry.label}</strong>
+                    <small>{entry.category}</small>
+                  </div>
+                  <span className="budget-amount">{formatAmount(entry.amount, entry.currency)}</span>
+                  <IconButton label="삭제" onClick={() => removeBudgetEntry(entry.id)}>
+                    <X size={15} />
+                  </IconButton>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 }

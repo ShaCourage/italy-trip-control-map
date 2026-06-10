@@ -2524,3 +2524,111 @@ input:focus {
   margin-top: auto;
   justify-content: center;
 }
+
+/* B4: 공식 영업시간·예약 박스 */
+.official-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 12px 14px;
+}
+
+.official-box > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.official-box strong {
+  font-size: 0.9rem;
+}
+
+.official-box span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.official-box a {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* C3: 현지명 병기 — 식당 간판/구글맵 검색 대조용 */
+.local-name {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.popup-local-name {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+/* C1: 예산 기록 */
+.budget-form {
+  display: grid;
+  gap: 8px;
+}
+
+.budget-form input,
+.budget-form select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.budget-form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.budget-form button {
+  justify-self: start;
+}
+
+.budget-list {
+  display: grid;
+  gap: 8px;
+}
+
+.budget-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.budget-item > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.budget-item strong {
+  font-size: 0.92rem;
+}
+
+.budget-item small {
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.budget-amount {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

@@ -11,10 +11,12 @@ export type SliceKey =
   | "done"
   | "checks"
   | "notes"
-  | "docs";
+  | "docs"
+  | "budget";
 
 // v3 이전에 쓰던 개별 키 — 첫 실행 시 한 번 읽어와 합치고 제거한다
-const LEGACY_KEYS: Record<SliceKey, string> = {
+// (v3 이후 추가된 슬라이스는 레거시 키가 없으므로 생략 가능)
+const LEGACY_KEYS: Partial<Record<SliceKey, string>> = {
   settings: "italy-trip-settings-v1",
   days: "italy-trip-days-v1",
   routes: "italy-trip-custom-routes-v2",
@@ -48,7 +50,9 @@ function migrateLegacy(): StoredState {
   let found = false;
   for (const slice of Object.keys(LEGACY_KEYS) as SliceKey[]) {
     try {
-      const raw = window.localStorage.getItem(LEGACY_KEYS[slice]);
+      const legacyKey = LEGACY_KEYS[slice];
+      if (!legacyKey) continue;
+      const raw = window.localStorage.getItem(legacyKey);
       if (raw === null) continue;
       state[slice] = JSON.parse(raw);
       found = true;

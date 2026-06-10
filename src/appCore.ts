@@ -296,6 +296,20 @@ export function makeGooglePlaceUrl(place: Place) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name} ${cityLabels[place.city]}`)}`;
 }
 
+// B4: 추정 영업시간 대신, 출처로 이미 검증된 "공식 기관 페이지"를 고정 노출.
+// restaurant-official(일반 구글맵)은 공식 채널이 아니므로 제외.
+const officialSourceById = new Map(
+  sources.filter((source) => source.id.endsWith("-official") || source.id === "vatican-museums").map((source) => [source.id, source])
+);
+
+export function getOfficialSource(place: Place): { label: string; url: string } | undefined {
+  for (const id of place.sourceIds) {
+    const source = officialSourceById.get(id);
+    if (source) return { label: source.label, url: source.url };
+  }
+  return undefined;
+}
+
 export function makeDirectionsUrl(route: RouteItem[]) {
   const routePlaces = route.map((item) => getPlace(item.placeId));
   if (routePlaces.length === 0) return "https://www.google.com/maps";

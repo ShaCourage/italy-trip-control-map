@@ -43,6 +43,8 @@ import { Pill } from "./components/place";
 import { DayAddForm } from "./components/schedule";
 import { normalizeTripDocs } from "./lib/docs";
 import type { TripDoc, TripDocInput } from "./lib/docs";
+import { normalizeBudget } from "./lib/budget";
+import type { BudgetEntry } from "./lib/budget";
 import type { MoreKey } from "./screens/MoreScreen";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
@@ -196,6 +198,7 @@ export default function App() {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadSlice("checks", {}));
   const [notes, setNotes] = useState<Record<string, string>>(() => loadSlice("notes", {}));
   const [docs, setDocs] = useState<TripDoc[]>(() => normalizeTripDocs(loadSlice<unknown>("docs", [])));
+  const [budget, setBudget] = useState<BudgetEntry[]>(() => normalizeBudget(loadSlice<unknown>("budget", [])));
   const [toast, setToast] = useState("");
 
   const selectedDay = days.find((day) => day.id === selectedDayId) ?? days[0] ?? emptyDay;
@@ -267,6 +270,10 @@ export default function App() {
   useEffect(() => {
     saveSlice("docs", docs);
   }, [docs]);
+
+  useEffect(() => {
+    saveSlice("budget", budget);
+  }, [budget]);
 
   const mapPlaces = useMemo(() => {
     const routeIds = new Set(selectedRoute.map((item) => item.placeId));
@@ -516,6 +523,19 @@ export default function App() {
     setToast("문서 삭제됨");
   }
 
+  function addBudgetEntry(input: Omit<BudgetEntry, "id">) {
+    setBudget((current) => [
+      ...current,
+      { ...input, id: `budget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
+    ]);
+    setToast("지출 기록됨");
+  }
+
+  function removeBudgetEntry(id: string) {
+    setBudget((current) => current.filter((entry) => entry.id !== id));
+    setToast("지출 삭제됨");
+  }
+
   function updateSettings(patch: Partial<AppSettings>) {
     setSettings((current) => {
       const next = { ...current, ...patch };
@@ -529,7 +549,7 @@ export default function App() {
     downloadFile(
       "italy-trip-backup.json",
       JSON.stringify(
-        { version: 6, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, notes, docs, settings },
+        { version: 7, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, notes, docs, budget, settings },
         null,
         2
       ),
@@ -549,6 +569,7 @@ export default function App() {
           checks?: Record<string, boolean>;
           notes?: Record<string, string>;
           docs?: TripDoc[];
+          budget?: BudgetEntry[];
           settings?: AppSettings;
         };
         if (Array.isArray(data.customPlaces)) {
@@ -564,6 +585,7 @@ export default function App() {
         if (data.checks) setCheckedItems(data.checks);
         if (data.notes) setNotes(data.notes);
         if (Array.isArray(data.docs)) setDocs(normalizeTripDocs(data.docs));
+        if (Array.isArray(data.budget)) setBudget(normalizeBudget(data.budget));
         if (data.settings) {
           applyHotelSettings(data.settings);
           setSettings(data.settings);
@@ -729,6 +751,10 @@ export default function App() {
               addDoc={addDoc}
               updateDoc={updateDoc}
               removeDoc={removeDoc}
+              budget={budget}
+              addBudgetEntry={addBudgetEntry}
+              removeBudgetEntry={removeBudgetEntry}
+              days={days}
             />
           </Suspense>
         )}

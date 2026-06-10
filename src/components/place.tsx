@@ -9,6 +9,7 @@ import {
   cityLabels,
   formatDistanceKm,
   getEnhancement,
+  getOfficialSource,
   getPlace,
   getPlaceScore,
   getShortLabel,
@@ -174,6 +175,8 @@ export function PlaceInsightCard({
   const enhancement = getEnhancement(place);
   const google = getPlaceScore(place, enhancement);
   const inRoute = selectedRoute.some((item) => item.placeId === place.id);
+  const officialSource = getOfficialSource(place);
+  const needsReservation = place.reservation === "필수" || place.reservation === "권장";
   const pairPlaces = place.pairWith.map((id) => placesById.get(id)).filter((item): item is Place => Boolean(item)).slice(0, 6);
   const sourceNames = place.sourceIds
     .map((id) => sources.find((source) => source.id === id)?.label)
@@ -189,6 +192,9 @@ export function PlaceInsightCard({
             {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
           </small>
           <h2>{place.koName}</h2>
+          {place.name && place.name !== place.koName && !place.name.endsWith("placeholder") ? (
+            <p className="local-name">{place.name}</p>
+          ) : null}
         </div>
         <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
       </div>
@@ -224,6 +230,24 @@ export function PlaceInsightCard({
           실시간 확인 <ExternalLink size={13} />
         </a>
       </div>
+
+      {(officialSource || needsReservation) && (
+        <div className="official-box">
+          <div>
+            <strong>{place.reservation === "필수" ? "예약 필수" : place.reservation === "권장" ? "예약 권장" : "공식 정보"}</strong>
+            <span>영업시간·예약은 변동이 잦으니 공식 페이지에서 최종 확인하세요.</span>
+          </div>
+          {officialSource ? (
+            <a className="solid-button compact" href={officialSource.url} target="_blank" rel="noreferrer">
+              공식 페이지 <ExternalLink size={13} />
+            </a>
+          ) : (
+            <a className="ghost-button compact" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+              영업시간 검색 <ExternalLink size={13} />
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="insight-metrics">
         <span>

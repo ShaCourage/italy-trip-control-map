@@ -133,6 +133,9 @@ function PlaceMapMarker({
       <Popup>
         <div className="map-popup">
           <strong>{place.koName}</strong>
+          {place.name && place.name !== place.koName && !place.name.endsWith("placeholder") ? (
+            <em className="popup-local-name">{place.name}</em>
+          ) : null}
           <span>
             {categoryLabels[place.category]} · {place.area} · {google.ratingText}
           </span>
