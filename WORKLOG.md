@@ -174,3 +174,13 @@ type TripTemplate = {
 - URL에 스킴이 없으면 `https://`를 보완하고 HTTP(S) 이외 주소는 저장 차단
 - 기존 백업·저장 문서는 `기타` 유형으로 자동 호환, 백업 버전 6으로 갱신
 - 390px 모바일에서 잘못된 URL 차단, 링크 정규화, 필터, 유형 변경 흐름 확인
+
+---
+
+## 2026-06-10 후속 세션 — F6 데이터 빌드 검증
+
+- `scripts/check-refs.mjs`를 TypeScript AST 기반 `scripts/check-data.mjs`로 교체
+- 장소·출처·보강 데이터·템플릿 컬렉션을 분리해 정확히 집계
+- 중복 ID, 좌표 범위, placeId/pairWith/sourceIds 참조, 필수 출처, 이미지 원출처, Google 확인일 검증
+- 기존 217 ids 표기는 일정·출처 ID가 섞인 오집계였으며 실제 장소는 179개로 확인
+- `npm run check:data`를 추가하고 `npm run build` 선행 단계로 연결

@@ -1,12 +1,12 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-10 (배포 준비 + 저장소 통합 v3)
+마지막 갱신: 2026-06-10 (문서함 UX + 데이터 빌드 검증)
 
 ## 현재 상태
 
 - 브랜치: `main`
 - 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`) — **비공개 저장소**
-- 검증: `npm run build` 통과, 프리뷰에서 저장소 v3 마이그레이션·데이터 보존·콘솔 에러 0 확인
+- 검증: `npm run build`가 데이터 무결성 검사부터 실행. 프리뷰에서 저장소 v3 마이그레이션·데이터 보존·콘솔 에러 0 확인
 
 ## ⚠️ 사용자 결정 필요 — 배포(A3)
 
@@ -32,7 +32,7 @@ GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거
 ### F4 저장소 통합 (완료) + F1 첫 조각
 - `src/lib/storage.ts` 신설: 단일 키 **`italy-trip-state-v3`** + `loadSlice`/`saveSlice` API
 - 레거시 키 8개(settings/days/routes/customPlaces/done/checks/notes/docs) 자동 마이그레이션 + 제거, v3 존재 시 잔재도 정리
-- App.tsx에서 localStorage 직접 참조 제거 — 백업 내보내기/복원 파일 포맷은 그대로(version 5)
+- App.tsx에서 localStorage 직접 참조 제거 — 현재 백업 내보내기/복원 파일 포맷 version 6
 
 ## 직전 세션 (템플릿 + 대량 수집)
 
@@ -51,7 +51,9 @@ GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거
 - Google 평점 미확인 상태라 전부 내부 추천점수(rank)로 표시됨 (점수 정책 유지)
 
 ### 검증 스크립트
-- `scripts/check-refs.mjs` 신설 — 템플릿 placeId + pairWith 참조 무결성 검사 (F6 빌드 게이트의 토대)
+- `scripts/check-data.mjs` — TypeScript AST 기반으로 장소·출처·보강 데이터·템플릿을 분리해 검증
+- `npm run check:data`가 중복 ID, 좌표 범위, placeId/pairWith/sourceIds 참조, 출처 누락, 고아 보강 데이터, 이미지 출처, Google 확인일을 검사
+- `npm run build`의 첫 단계로 연결되어 데이터 오류가 있으면 번들링 전에 실패
 
 ## 직전 세션에서 한 일
 
@@ -85,6 +87,7 @@ GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거
 
 - **A3 배포 마무리** — 위 "사용자 결정 필요" 해결 → deploy.yml push 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 추가 + 비행기 모드로 오프라인 확인
 - **F1 구조 분리(완료)** — `App.tsx` 약 3,200줄 → 약 800줄. `appCore.ts`, 공용 UI, `MapScreen`, `RankingScreen`, `TodayScreen`, `PlanScreen`, `MoreScreen` 분리 및 lazy loading 적용. vendor 청크 분리로 500kB 경고 제거
+- **F6 데이터 빌드 검증(완료)** — 실제 179개 장소 기준 AST 검사, `npm run build` 선행 게이트 적용
 - **사진 미해결 6곳** — 위키 문서가 없는 식당들(roscioli, armando-al-pantheon, sant-eustachio, tazza-doro, buca-lapi, forno-campo-de-fiori). 직접 찍은 사진이나 무료 이미지 수동 지정 가능 (`placeEnhancements.ts`의 `imageUrl`)
 - **문서함 UX(완료)** — 유형 선택·필터, 문서 수정, HTTP(S) URL 검증 및 기존 문서 `기타` 유형 마이그레이션
 
@@ -105,4 +108,11 @@ npm run dev
 - 모바일 템플릿 진입점 강화: 하단 `일정` 메뉴를 `템플릿`으로 변경, 오늘 화면에 `템플릿 변경` 버튼 추가
 - `vite.config.ts`: Rolldown vendor 그룹 분리
 - 빌드 결과: 메인 287.98kB, vendor 352.03kB, 화면 청크 3.81-11.48kB
-- 검증: `npm run build`, `node scripts/check-refs.mjs`, 390px 모바일 템플릿 진입·4카드·More 화면, 콘솔 오류 0
+- 검증: `npm run build`, `npm run check:data`, 390px 모바일 템플릿 진입·4카드·More 화면, 콘솔 오류 0
+
+## 2026-06-10 F6 데이터 빌드 검증 완료
+
+- 기존 정규식 검사가 일정·출처 ID까지 장소로 집계해 217개로 잘못 보고하던 문제 수정
+- TypeScript AST로 `places`, `extraPlaces`, `morePlaces`, 출처, 보강 데이터, 템플릿을 구조적으로 분리
+- 현재 기준: 장소 179개, 출처 29개, 보강 데이터 175개, 템플릿 4개
+- `npm run check:data` 추가, `npm run build` 시작 전에 자동 실행
