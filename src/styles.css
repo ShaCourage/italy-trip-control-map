@@ -2558,50 +2558,30 @@ input:focus {
   white-space: nowrap;
 }
 
-/* C3: 한글명 + 한글 발음 + 원명 병기 — 식당 간판/구글맵 검색 대조용 */
-.place-name-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 5px;
-}
-
-.place-name-stack span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
-  padding: 4px 8px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.place-name-stack b {
-  color: var(--ink);
-  font-size: 0.72rem;
-}
-
-.place-name-stack.compact {
-  gap: 5px;
-  margin-top: 7px;
-}
-
-.place-name-stack.compact span {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  padding: 3px 7px;
-  font-size: 0.72rem;
-}
-
-.popup-local-name {
+/* C3: 영어(발음, 뜻) 한 줄 고정 표시 */
+.place-name-line {
   display: block;
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 2px;
+  min-width: 0;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-weight: 850;
+  line-height: 1.24;
+}
+
+.place-name-line.compact {
+  margin-top: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.place-card-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
 }
 
 /* C1: 예산 기록 */

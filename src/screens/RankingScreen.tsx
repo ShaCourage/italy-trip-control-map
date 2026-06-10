@@ -6,7 +6,6 @@ import {
   categoryLabels,
   cityLabels,
   getEnhancement,
-  getPlacePronunciation,
   getPlaceScore,
   getShortLabel,
   places,
@@ -16,7 +15,7 @@ import {
 import type { Place, PlaceCategory, RouteItem, TabKey } from "../appCore";
 import type { City } from "../data";
 import { categoryShortLabels } from "../placeEnhancements";
-import { Pill, PlaceInsightCard, usePlaceMedia } from "../components/place";
+import { Pill, PlaceInsightCard, PlaceNameBlock, usePlaceMedia } from "../components/place";
 
 type RankSortKey = "popular" | "rating" | "fast";
 
@@ -112,22 +111,12 @@ function PlacePhotoCard({ place, rank, onOpen }: { place: Place; rank: number; o
         <small>
           {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
         </small>
-        <h3>
-          <span>{place.koName}</span>
+        <div className="place-card-title-row">
+          <PlaceNameBlock place={place} compact />
           <span className={score.isVerified ? "score-chip" : "score-chip internal"}>
             <Star size={13} />
             {score.isVerified ? score.rating?.toFixed(1) : `${place.rank}점`}
           </span>
-        </h3>
-        <div className="place-name-stack compact">
-          <span>
-            <b>발음</b> {getPlacePronunciation(place)}
-          </span>
-          {place.name && !place.name.endsWith("placeholder") ? (
-            <span>
-              <b>원명</b> {place.name}
-            </span>
-          ) : null}
         </div>
         <p className="card-desc">{place.why}</p>
         <div className="trait-row">

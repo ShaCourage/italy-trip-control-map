@@ -51,6 +51,18 @@ export function ClockIcon() {
   return <span className="clock-dot" aria-hidden="true" />;
 }
 
+export function PlaceNameBlock({ place, compact = false }: { place: Place; compact?: boolean }) {
+  const originalName = place.name && !place.name.endsWith("placeholder") ? place.name : place.koName;
+  const pronunciation = getPlacePronunciation(place);
+  const meaning = place.koName;
+
+  return (
+    <span className={compact ? "place-name-line compact" : "place-name-line"}>
+      {originalName}({pronunciation}, {meaning})
+    </span>
+  );
+}
+
 export function DayStrip({ days, selectedDayId, setDay }: { days: TripDay[]; selectedDayId: string; setDay: (id: string) => void }) {
   return (
     <div className="day-strip" aria-label="날짜 선택">
@@ -192,17 +204,7 @@ export function PlaceInsightCard({
           <small>
             {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
           </small>
-          <h2>{place.koName}</h2>
-          <div className="place-name-stack">
-            <span>
-              <b>발음</b> {getPlacePronunciation(place)}
-            </span>
-            {place.name && !place.name.endsWith("placeholder") ? (
-              <span>
-                <b>원명</b> {place.name}
-              </span>
-            ) : null}
-          </div>
+          <PlaceNameBlock place={place} />
         </div>
         <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
       </div>

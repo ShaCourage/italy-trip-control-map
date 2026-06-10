@@ -37,7 +37,6 @@ import {
   formatDistanceKm,
   getEnhancement,
   getPlace,
-  getPlacePronunciation,
   getPlaceScore,
   getShortLabel,
   makeDirectionsUrl,
@@ -48,7 +47,7 @@ import {
 } from "../appCore";
 import type { FilterKey, ModeKey, Place, PlaceCategory, RouteItem, RouteStats, TripDay } from "../appCore";
 import { categoryShortLabels } from "../placeEnhancements";
-import { DayStrip, IconButton, Pill, PlaceInsightCard, PlaceThumb, RecommendedRouteCard } from "../components/place";
+import { DayStrip, IconButton, Pill, PlaceInsightCard, PlaceNameBlock, PlaceThumb, RecommendedRouteCard } from "../components/place";
 
 function FitMap({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -133,11 +132,7 @@ function PlaceMapMarker({
       </Tooltip>
       <Popup>
         <div className="map-popup">
-          <strong>{place.koName}</strong>
-          <em className="popup-local-name">
-            발음 {getPlacePronunciation(place)}
-            {place.name && !place.name.endsWith("placeholder") ? ` · 원명 ${place.name}` : ""}
-          </em>
+          <PlaceNameBlock place={place} compact />
           <span>
             {categoryLabels[place.category]} · {place.area} · {google.ratingText}
           </span>
