@@ -11,6 +11,7 @@ import {
   getEnhancement,
   getOfficialSource,
   getPlace,
+  getPlacePronunciation,
   getPlaceScore,
   getShortLabel,
   makeGooglePlaceUrl,
@@ -192,9 +193,16 @@ export function PlaceInsightCard({
             {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
           </small>
           <h2>{place.koName}</h2>
-          {place.name && place.name !== place.koName && !place.name.endsWith("placeholder") ? (
-            <p className="local-name">{place.name}</p>
-          ) : null}
+          <div className="place-name-stack">
+            <span>
+              <b>발음</b> {getPlacePronunciation(place)}
+            </span>
+            {place.name && !place.name.endsWith("placeholder") ? (
+              <span>
+                <b>원명</b> {place.name}
+              </span>
+            ) : null}
+          </div>
         </div>
         <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
       </div>

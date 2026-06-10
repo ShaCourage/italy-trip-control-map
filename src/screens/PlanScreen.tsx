@@ -35,8 +35,8 @@ export default function PlanScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Plan</p>
-          <h1>일정 · 템플릿</h1>
+          <p className="eyebrow">일정</p>
+          <h1>전체 일정</h1>
           <p className="subline">
             {rangeLabel} · {days.length}일 · 날짜 추가/삭제와 코스 편집 모두 가능
           </p>

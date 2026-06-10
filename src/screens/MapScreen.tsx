@@ -37,6 +37,7 @@ import {
   formatDistanceKm,
   getEnhancement,
   getPlace,
+  getPlacePronunciation,
   getPlaceScore,
   getShortLabel,
   makeDirectionsUrl,
@@ -133,9 +134,10 @@ function PlaceMapMarker({
       <Popup>
         <div className="map-popup">
           <strong>{place.koName}</strong>
-          {place.name && place.name !== place.koName && !place.name.endsWith("placeholder") ? (
-            <em className="popup-local-name">{place.name}</em>
-          ) : null}
+          <em className="popup-local-name">
+            발음 {getPlacePronunciation(place)}
+            {place.name && !place.name.endsWith("placeholder") ? ` · 원명 ${place.name}` : ""}
+          </em>
           <span>
             {categoryLabels[place.category]} · {place.area} · {google.ratingText}
           </span>
@@ -268,7 +270,7 @@ export default function MapScreen({
     <section className="screen map-screen">
       <div className="screen-header map-header">
         <div>
-          <p className="eyebrow">Italy Trip Control Map</p>
+          <p className="eyebrow">지도</p>
           <h1>{selectedDay.title}</h1>
           <p className="subline">
             {selectedDay.label} · {selectedDay.areaFocus}

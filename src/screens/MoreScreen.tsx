@@ -296,7 +296,7 @@ export default function MoreScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">More</p>
+          <p className="eyebrow">더보기</p>
           <h1>안전, 회화, 설정</h1>
           <p className="subline">현장에서 자주 쓰는 것 + 숙소·백업 설정</p>
         </div>

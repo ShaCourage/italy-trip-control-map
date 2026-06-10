@@ -2558,12 +2558,43 @@ input:focus {
   white-space: nowrap;
 }
 
-/* C3: 현지명 병기 — 식당 간판/구글맵 검색 대조용 */
-.local-name {
-  margin: 2px 0 0;
-  font-size: 0.82rem;
-  font-style: italic;
+/* C3: 한글명 + 한글 발음 + 원명 병기 — 식당 간판/구글맵 검색 대조용 */
+.place-name-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.place-name-stack span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
   color: var(--muted);
+  padding: 4px 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.place-name-stack b {
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+
+.place-name-stack.compact {
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.place-name-stack.compact span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 3px 7px;
+  font-size: 0.72rem;
 }
 
 .popup-local-name {

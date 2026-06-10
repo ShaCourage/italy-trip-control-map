@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  FileText,
+  Home,
   Map as MapIcon,
+  MapPin,
+  MoreHorizontal,
   Sparkles,
-  Trophy,
 } from "lucide-react";
 import {
   City,
@@ -54,11 +55,11 @@ const PlanScreen = lazy(() => import("./screens/PlanScreen"));
 const MoreScreen = lazy(() => import("./screens/MoreScreen"));
 
 const tabItems = [
-  { key: "today" as const, label: "오늘", icon: Sparkles },
+  { key: "today" as const, label: "홈", icon: Home },
   { key: "map" as const, label: "지도", icon: MapIcon },
-  { key: "ranking" as const, label: "장소", icon: Trophy },
-  { key: "plan" as const, label: "템플릿", icon: CalendarDays },
-  { key: "more" as const, label: "더보기", icon: FileText },
+  { key: "plan" as const, label: "일정", icon: CalendarDays },
+  { key: "ranking" as const, label: "장소", icon: MapPin },
+  { key: "more" as const, label: "더보기", icon: MoreHorizontal },
 ];
 
 function downloadFile(name: string, content: string, type: string) {
@@ -792,7 +793,7 @@ function SetupScreen({
     <section className="screen setup-screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Start</p>
+          <p className="eyebrow">시작</p>
           <h1>여행 일정 만들기</h1>
           <p className="subline">
             아직 일정이 비어 있어요. 4가지 콘셉트 중 하나로 시작하거나 날짜를 직접 추가하세요. 로마 5일 +

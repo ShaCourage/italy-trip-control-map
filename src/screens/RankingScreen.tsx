@@ -6,6 +6,7 @@ import {
   categoryLabels,
   cityLabels,
   getEnhancement,
+  getPlacePronunciation,
   getPlaceScore,
   getShortLabel,
   places,
@@ -118,6 +119,16 @@ function PlacePhotoCard({ place, rank, onOpen }: { place: Place; rank: number; o
             {score.isVerified ? score.rating?.toFixed(1) : `${place.rank}점`}
           </span>
         </h3>
+        <div className="place-name-stack compact">
+          <span>
+            <b>발음</b> {getPlacePronunciation(place)}
+          </span>
+          {place.name && !place.name.endsWith("placeholder") ? (
+            <span>
+              <b>원명</b> {place.name}
+            </span>
+          ) : null}
+        </div>
         <p className="card-desc">{place.why}</p>
         <div className="trait-row">
           {badges.map((badge) => (
@@ -203,8 +214,8 @@ export default function RankingScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Roma · Firenze</p>
-          <h1>인기 장소</h1>
+          <p className="eyebrow">장소</p>
+          <h1>장소 둘러보기</h1>
           <p className="subline">명소·맛집·카페를 인기순으로 — 카드를 누르면 상세 정보</p>
         </div>
         <button className="ghost-button compact" onClick={() => setShowCustomForm((current) => !current)}>

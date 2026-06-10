@@ -2,6 +2,8 @@ import type { PlaceCategory } from "./data";
 
 export type PlaceEnhancement = {
   shortLabel?: string;
+  /** 원어명을 한국어로 읽을 때의 발음 */
+  pronunciation?: string;
   wikiTitle?: string;
   imageUrl?: string;
   imageCredit?: string;

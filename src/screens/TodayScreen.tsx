@@ -61,7 +61,7 @@ export default function TodayScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Today</p>
+          <p className="eyebrow">홈</p>
           <h1>{selectedDay.title}</h1>
           <p className="subline">
             {selectedDay.label} · {cityLabels[selectedDay.city]} · {selectedDay.areaFocus}
