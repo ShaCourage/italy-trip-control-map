@@ -118,3 +118,26 @@ type TripTemplate = {
 - 웹검색 추가 호출 중단 — 기확보 리서치 + 모델 지식으로 데이터 작성
 - 프리뷰 스크린샷은 단계당 1-2회로 제한
 - 파일 수정은 배치로, 재읽기 최소화
+
+---
+
+## 2026-06-10 후속 세션 — A3 배포 준비 + F4 저장소 통합
+
+### A3 배포 (인프라 완성, 활성화는 사용자 결정 대기)
+- GitHub Pages 활성화 시도 → **422: 무료 플랜 + 비공개 저장소는 Pages 불가**
+- 사용자 결정 필요: ① 저장소 공개 전환 ② GitHub Pro ③ 다른 호스팅 계정 — HANDOFF.md에 정리
+- 준비 완료:
+  - `.github/workflows/deploy.yml` (workflow_dispatch 전용 — 실패 스팸 방지, 활성화 후 push 트리거 추가)
+  - PWA 배포경로 안전화: sw.js가 자기 URL에서 BASE 유도, manifest 상대경로, SW 등록은 `import.meta.env.BASE_URL`
+  - sw.js v2: 내비게이션 network-first(기존 cache-first는 새 배포가 영영 안 보이는 버그였음), 위키미디어 사진·jsdelivr 폰트 런타임 캐시(오프라인 사진 해결), 지도 타일은 캐시 제외(용량 폭주 방지)
+  - `npm run build -- --base=/italy-trip-control-map/` 로컬 검증 — dist URL 리베이스 확인
+
+### F4 저장소 통합 (완료) — F1의 첫 분리 조각
+- `src/lib/storage.ts` 신설: 단일 키 `italy-trip-state-v3`, loadSlice/saveSlice, 모듈 캐시
+- 레거시 키 8개 자동 마이그레이션 + 제거, v3 존재 시 잔재도 정리(self-healing — HMR 과도기에 레거시 키 재생성되는 것 실측 후 추가)
+- App.tsx의 localStorage 직접 참조 0 — 전부 슬라이스 API 경유
+- 프리뷰 검증: 레거시→v3 이전, 데이터 보존(foodie 일정·루트·설정), 최종 키 1개, 콘솔 에러 0
+
+### 다음 세션 시작점
+- 사용자가 공개 전환/플랜 결정 시: deploy.yml 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 + 오프라인 확인
+- F1 잔여: screens/RankingScreen.tsx 분리 + 코드 스플리팅(청크 500kB 경고)

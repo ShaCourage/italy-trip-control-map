@@ -1,0 +1,40 @@
+name: Deploy to GitHub Pages
+
+# 현재 비공개 저장소 + 무료 플랜이라 Pages 비활성 (422). 공개 전환 또는 Pro 업그레이드 후
+# 아래 trigger에 `push: { branches: [main] }`를 추가하고 Actions 탭에서 수동 실행 1회.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # 프로젝트 페이지는 /<repo>/ 하위 경로에서 서빙되므로 base를 지정해 빌드
+      - run: npm run build -- --base=/italy-trip-control-map/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

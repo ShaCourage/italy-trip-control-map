@@ -1,14 +1,40 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-10 (템플릿 4종 + 장소 38곳 대량 추가)
+마지막 갱신: 2026-06-10 (배포 준비 + 저장소 통합 v3)
 
 ## 현재 상태
 
 - 브랜치: `main`
-- 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`)
-- 검증: `npm run build` 통과, `node scripts/check-refs.mjs` 통과, 프리뷰 DOM 검증(적용 플로우·175카드·이미지 70) 완료
+- 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`) — **비공개 저장소**
+- 검증: `npm run build` 통과, 프리뷰에서 저장소 v3 마이그레이션·데이터 보존·콘솔 에러 0 확인
 
-## 이번 세션에서 한 일 (템플릿 + 대량 수집)
+## ⚠️ 사용자 결정 필요 — 배포(A3)
+
+GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거부됨(422)**. 셋 중 하나가 필요:
+
+1. **저장소 공개 전환** (GitHub Settings → General → Danger Zone) — 비용 0. 단, 코드와 여행 일정 데이터가 공개됨 (민감정보는 localStorage에만 있어 공개돼도 노출 안 됨)
+2. **GitHub Pro 업그레이드** — 비공개 유지한 채 Pages 사용
+3. **Vercel/Netlify 등 다른 호스팅** — 해당 서비스 계정 연결 필요
+
+해결 후 할 일 (2분): `.github/workflows/deploy.yml`의 `on:`에 `push: {branches: [main]}` 추가 → Actions 탭에서 Deploy to GitHub Pages 수동 실행 1회. 베이스 경로·PWA·오프라인 캐시는 전부 준비돼 있음.
+
+## 이번 세션에서 한 일 (배포 준비 + 저장소 통합)
+
+### A3 배포 준비 — Pages 활성화만 막힘
+- `.github/workflows/deploy.yml` 작성 (현재 workflow_dispatch 전용 — push마다 실패 알림 쌓이는 것 방지)
+- PWA 하위경로 안전화: `sw.js`가 자기 URL에서 BASE 유도, manifest는 상대경로(`./`), SW 등록은 `import.meta.env.BASE_URL` — `/italy-trip-control-map/` 하위에서도 동작
+- `sw.js` v2 재작성:
+  - 내비게이션 **network-first** — 기존 cache-first는 새 배포가 영영 안 보이는 버그였음
+  - 위키미디어 사진 + jsdelivr 폰트 런타임 캐시 — **오프라인에서 장소 사진 뜸** (한 번 본 것)
+  - 지도 타일(OSM)은 캐시 제외 — 용량 폭주 방지, 지도는 온라인 전용
+- `npm run build -- --base=/italy-trip-control-map/` 검증 완료
+
+### F4 저장소 통합 (완료) + F1 첫 조각
+- `src/lib/storage.ts` 신설: 단일 키 **`italy-trip-state-v3`** + `loadSlice`/`saveSlice` API
+- 레거시 키 8개(settings/days/routes/customPlaces/done/checks/notes/docs) 자동 마이그레이션 + 제거, v3 존재 시 잔재도 정리
+- App.tsx에서 localStorage 직접 참조 제거 — 백업 내보내기/복원 파일 포맷은 그대로(version 5)
+
+## 직전 세션 (템플릿 + 대량 수집)
 
 ### 여행 템플릿 4종 (`src/templates.ts`)
 - `classic`(기존 tripDays 재사용) / `foodie` 미식 로드 / `relaxed` 여유 만끽(하루 4곳 이하+한낮 시에스타) / `photo` 인생샷 헌터(골든아워 동선)
@@ -57,10 +83,8 @@
 
 ## 이어서 할 일
 
-- **A3 배포** — iPhone 실사용을 위해 Vercel/Netlify/GitHub Pages HTTPS 배포 + PWA 홈 화면/오프라인 확인
-  - 사진이 핫링크(upload.wikimedia.org)라 오프라인에선 안 뜸 — 서비스워커 런타임 캐시 고려
-- **F4 저장소 통합** — localStorage 키 8개 → `italy-trip-state-v3` 단일 키 + 마이그레이션
-- **F1 구조 분리** — `App.tsx` 약 3,000줄. `screens/RankingScreen.tsx`, `lib/storage.ts`부터 분리 추천. 빌드 청크 500kB 경고도 이때 같이 (코드 스플리팅)
+- **A3 배포 마무리** — 위 "사용자 결정 필요" 해결 → deploy.yml push 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 추가 + 비행기 모드로 오프라인 확인
+- **F1 구조 분리(잔여)** — `App.tsx` 약 3,000줄. `screens/RankingScreen.tsx` 분리 추천 (`lib/storage.ts`는 이번에 완료). 빌드 청크 500kB 경고도 이때 같이 (코드 스플리팅)
 - **사진 미해결 6곳** — 위키 문서가 없는 식당들(roscioli, armando-al-pantheon, sant-eustachio, tazza-doro, buca-lapi, forno-campo-de-fiori). 직접 찍은 사진이나 무료 이미지 수동 지정 가능 (`placeEnhancements.ts`의 `imageUrl`)
 - **문서함 UX** — 문서 수정, 타입 필터, URL 검증 (기존 백로그 유지)
 

@@ -61,6 +61,7 @@ import { extraPlaces, extraSources, foodOrderGuides, koreanTravelGuides } from "
 import { morePlaces } from "./morePlaces";
 import { tripTemplates } from "./templates";
 import { categoryShortLabels, placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
+import { loadSlice, saveSlice } from "./lib/storage";
 
 type TabKey = "map" | "today" | "plan" | "ranking" | "more";
 
@@ -285,15 +286,8 @@ function traitBadges(place: Place): string[] {
   return badges;
 }
 
-const SETTINGS_KEY = "italy-trip-settings-v1";
-
 function loadSettings(): AppSettings {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as AppSettings;
-  } catch {
-    return {};
-  }
+  return loadSlice<AppSettings>("settings", {});
 }
 
 // 숙소 placeholder 좌표를 설정값으로 덮어쓴다 — 모든 루트/거리 계산의 기준점
@@ -530,10 +524,6 @@ const cityCenters: Record<City, { lat: number; lng: number }> = {
   florence: { lat: 43.7696, lng: 11.2558 },
 };
 
-const ROUTES_KEY = "italy-trip-custom-routes-v2";
-const DAYS_KEY = "italy-trip-days-v1";
-const CUSTOM_PLACES_KEY = "italy-trip-custom-places-v1";
-
 function sanitizeRoutes(parsed: unknown): Record<string, RouteItem[]> {
   if (!parsed || typeof parsed !== "object") return {};
   return Object.fromEntries(
@@ -547,60 +537,33 @@ function sanitizeRoutes(parsed: unknown): Record<string, RouteItem[]> {
 }
 
 function loadStoredRoutes(): Record<string, RouteItem[]> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(ROUTES_KEY);
-    return raw ? sanitizeRoutes(JSON.parse(raw)) : {};
-  } catch {
-    return {};
-  }
+  return sanitizeRoutes(loadSlice("routes", {}));
 }
 
 // 기본은 빈 일정. 단, 이전 버전에서 루트를 만들어둔 흔적이 있으면 템플릿 일정으로 복원해 데이터를 살린다.
 function loadStoredDays(): TripDay[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(DAYS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as TripDay[];
-      if (Array.isArray(parsed)) {
-        return parsed.filter((day) => day && typeof day.id === "string" && typeof day.date === "string");
-      }
-    }
-  } catch {
-    return [];
+  const stored = loadSlice<TripDay[] | undefined>("days", undefined);
+  if (Array.isArray(stored)) {
+    return stored.filter((day) => day && typeof day.id === "string" && typeof day.date === "string");
   }
-  try {
-    const legacy = window.localStorage.getItem(ROUTES_KEY);
-    if (legacy) {
-      const parsed = JSON.parse(legacy) as Record<string, RouteItem[]>;
-      const hasAny = Object.values(parsed).some((route) => Array.isArray(route) && route.length > 0);
-      if (hasAny) return templateDays.map((day) => ({ ...day }));
-    }
-  } catch {
-    return [];
-  }
+  // days 슬라이스 자체가 없을 때만(첫 실행) 루트 흔적으로 템플릿 복원
+  const legacyRoutes = loadSlice<Record<string, RouteItem[]>>("routes", {});
+  const hasAny = Object.values(legacyRoutes).some((route) => Array.isArray(route) && route.length > 0);
+  if (hasAny) return templateDays.map((day) => ({ ...day }));
   return [];
 }
 
 function loadCustomPlaces(): Place[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(CUSTOM_PLACES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Place[];
-    return Array.isArray(parsed)
-      ? parsed.filter(
-          (place) =>
-            place &&
-            typeof place.id === "string" &&
-            typeof place.lat === "number" &&
-            typeof place.lng === "number"
-        )
-      : [];
-  } catch {
-    return [];
-  }
+  const parsed = loadSlice<Place[]>("customPlaces", []);
+  return Array.isArray(parsed)
+    ? parsed.filter(
+        (place) =>
+          place &&
+          typeof place.id === "string" &&
+          typeof place.lat === "number" &&
+          typeof place.lng === "number"
+      )
+    : [];
 }
 
 // 사용자 장소를 전역 풀에 등록 — places/placesById는 화면 전체가 읽는 단일 소스
@@ -618,20 +581,6 @@ function unregisterPlace(placeId: string) {
 
 const initialCustomPlaces = loadCustomPlaces();
 initialCustomPlaces.forEach(registerPlace);
-
-function loadStoredObject<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function loadStoredRecord(key: string): Record<string, boolean> {
-  return loadStoredObject<Record<string, boolean>>(key, {});
-}
 
 function localISODate() {
   const now = new Date();
@@ -808,7 +757,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [customPlaces, setCustomPlaces] = useState<Place[]>(initialCustomPlaces);
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
-  const [done, setDone] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-done-v1"));
+  const [done, setDone] = useState<Record<string, boolean>>(() => loadSlice("done", {}));
   const [selectedPlaceId, setSelectedPlaceId] = useState<string>(
     activeTemplateRoutes()[initialDayId]?.[1]?.placeId ?? places[0].id
   );
@@ -816,9 +765,9 @@ export default function App() {
   const [rankingCity, setRankingCity] = useState<"all" | "rome" | "florence">("all");
   const [query, setQuery] = useState("");
   const [moreSection, setMoreSection] = useState<MoreKey>("safety");
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-checks-v1"));
-  const [notes, setNotes] = useState<Record<string, string>>(() => loadStoredObject("italy-trip-notes-v1", {}));
-  const [docs, setDocs] = useState<TripDoc[]>(() => loadStoredObject<TripDoc[]>("italy-trip-docs-v1", []));
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadSlice("checks", {}));
+  const [notes, setNotes] = useState<Record<string, string>>(() => loadSlice("notes", {}));
+  const [docs, setDocs] = useState<TripDoc[]>(() => loadSlice<TripDoc[]>("docs", []));
   const [toast, setToast] = useState("");
 
   const selectedDay = days.find((day) => day.id === selectedDayId) ?? days[0] ?? emptyDay;
@@ -860,35 +809,35 @@ export default function App() {
 	  }, [toast]);
 
   useEffect(() => {
-    window.localStorage.setItem("italy-trip-custom-routes-v2", JSON.stringify(routes));
+    saveSlice("routes", routes);
   }, [routes]);
 
   useEffect(() => {
-    window.localStorage.setItem("italy-trip-done-v1", JSON.stringify(done));
+    saveSlice("done", done);
   }, [done]);
 
   useEffect(() => {
-    window.localStorage.setItem("italy-trip-checks-v1", JSON.stringify(checkedItems));
+    saveSlice("checks", checkedItems);
   }, [checkedItems]);
 
   useEffect(() => {
-    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    saveSlice("settings", settings);
   }, [settings]);
 
   useEffect(() => {
-    window.localStorage.setItem(DAYS_KEY, JSON.stringify(days));
+    saveSlice("days", days);
   }, [days]);
 
   useEffect(() => {
-    window.localStorage.setItem(CUSTOM_PLACES_KEY, JSON.stringify(customPlaces));
+    saveSlice("customPlaces", customPlaces);
   }, [customPlaces]);
 
   useEffect(() => {
-    window.localStorage.setItem("italy-trip-notes-v1", JSON.stringify(notes));
+    saveSlice("notes", notes);
   }, [notes]);
 
   useEffect(() => {
-    window.localStorage.setItem("italy-trip-docs-v1", JSON.stringify(docs));
+    saveSlice("docs", docs);
   }, [docs]);
 
   const mapPlaces = useMemo(() => {
