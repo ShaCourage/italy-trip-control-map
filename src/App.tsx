@@ -23,7 +23,6 @@ import {
   ExternalLink,
   FileText,
   Filter,
-  Home,
   Languages,
   ListChecks,
   Lock,
@@ -33,11 +32,13 @@ import {
   Plus,
   RefreshCw,
   Route,
+  Settings as SettingsIcon,
   Shield,
   Sparkles,
   Star,
   Train,
   Trophy,
+  Upload,
   Utensils,
   X,
 } from "lucide-react";
@@ -57,6 +58,13 @@ import { extraPlaces, extraSources, foodOrderGuides, koreanTravelGuides } from "
 import { categoryShortLabels, placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
 
 type TabKey = "map" | "today" | "plan" | "ranking" | "more";
+
+type AppSettings = {
+  romeHotel?: { lat: number; lng: number; label?: string };
+  florenceHotel?: { lat: number; lng: number; label?: string };
+  startTab?: TabKey;
+  defaultMode?: ModeKey;
+};
 type FilterKey =
   | "today"
   | "all"
@@ -71,7 +79,7 @@ type FilterKey =
   | "reservation"
   | "korean";
 type ModeKey = "default" | "low" | "photo" | "rain" | "night" | "shopping" | "food" | "korean" | "reservation" | "budget";
-type MoreKey = "safety" | "korean" | "foodGuide" | "phrases" | "checklist" | "exports" | "sources";
+type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "data";
 
 type RouteItem = {
   uid: string;
@@ -90,6 +98,7 @@ type PlaceScore = {
   rating?: number;
   ratingText: string;
   reviewCountLabel?: string;
+  lastChecked?: string;
   priceLevel: GooglePriceLevel;
   crowdLevel: GoogleCrowdLevel;
   visitConfidence: GoogleConfidence;
@@ -139,7 +148,7 @@ const tabItems = [
   { key: "map" as const, label: "지도", icon: MapIcon },
   { key: "today" as const, label: "오늘", icon: Sparkles },
   { key: "plan" as const, label: "일정", icon: CalendarDays },
-  { key: "ranking" as const, label: "랭킹", icon: Trophy },
+  { key: "ranking" as const, label: "장소", icon: Trophy },
   { key: "more" as const, label: "더보기", icon: FileText },
 ];
 
@@ -197,12 +206,64 @@ function getPlaceScore(place: Place, enhancement: PlaceEnhancement = getEnhancem
     rating: google?.rating,
     ratingText: google ? `Google ${google.rating.toFixed(1)}` : `추천 ${place.rank}`,
     reviewCountLabel: google?.reviewCountLabel,
+    lastChecked: google?.lastChecked,
     priceLevel: google?.priceLevel ?? priceLevelByPlacePrice[place.price],
     crowdLevel: google?.crowdLevel ?? inferCrowdLevel(place),
     visitConfidence: google?.visitConfidence ?? inferConfidence(place),
     isVerified: Boolean(google),
   };
 }
+
+// 장소 성격을 한눈에 — 전부 내부 데이터에서 기계적으로 파생 (추측 라벨 아님)
+function traitBadges(place: Place): string[] {
+  const badges: string[] = [];
+  if (place.priority === 1) badges.push("⭐ Must");
+  if (place.reservation === "필수") badges.push("🎫 예약 필수");
+  else if (place.reservation === "권장") badges.push("🎫 예약 권장");
+  if (place.photo === 3) badges.push("📸 인생샷");
+  if (place.bestTime.includes("해질녘") || place.tags.includes("야경")) badges.push("🌅 해질녘");
+  if (place.tags.includes("실내")) badges.push("🏛️ 실내");
+  if (place.price === "무료") badges.push("🆓 무료");
+  else if (place.price === "낮음") badges.push("💶 가성비");
+  if (place.tags.includes("한국인선호")) badges.push("🇰🇷 한국인픽");
+  if (place.durationMin <= 30 && place.category !== "stay" && place.category !== "station") badges.push("⏱️ 30분컷");
+  if (place.tags.includes("웨이팅")) badges.push("⏳ 웨이팅");
+  if (place.safety === "밤주의") badges.push("🌙 밤 주의");
+  else if (place.safety === "주의") badges.push("⚠️ 소지품");
+  return badges;
+}
+
+const SETTINGS_KEY = "italy-trip-settings-v1";
+
+function loadSettings(): AppSettings {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(SETTINGS_KEY) ?? "{}") as AppSettings;
+  } catch {
+    return {};
+  }
+}
+
+// 숙소 placeholder 좌표를 설정값으로 덮어쓴다 — 모든 루트/거리 계산의 기준점
+function applyHotelSettings(settings: AppSettings) {
+  const targets = [
+    { id: "rome-hotel", value: settings.romeHotel },
+    { id: "florence-hotel", value: settings.florenceHotel },
+  ] as const;
+  for (const { id, value } of targets) {
+    const place = placesById.get(id);
+    if (!place || !value) continue;
+    place.lat = value.lat;
+    place.lng = value.lng;
+    if (value.label) {
+      place.koName = value.label;
+      place.name = value.label;
+    }
+  }
+}
+
+const initialSettings = loadSettings();
+applyHotelSettings(initialSettings);
 
 function getShortLabel(place: Place) {
   return getEnhancement(place).shortLabel ?? place.koName.replace(/\s+/g, "").slice(0, 7);
@@ -531,10 +592,11 @@ function IconButton({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>("map");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialSettings.startTab ?? "map");
   const [selectedDayId, setSelectedDayId] = useState(initialDayId);
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [mode, setMode] = useState<ModeKey>("default");
+  const [mode, setMode] = useState<ModeKey>(initialSettings.defaultMode ?? "default");
+  const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
   const [done, setDone] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-done-v1"));
   const [selectedPlaceId, setSelectedPlaceId] = useState<string>(recommendedRoutes[initialDayId][1]?.placeId ?? places[0].id);
@@ -571,6 +633,10 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem("italy-trip-checks-v1", JSON.stringify(checkedItems));
   }, [checkedItems]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings]);
 
   const mapPlaces = useMemo(() => {
     const routeIds = new Set(selectedRoute.map((item) => item.placeId));
@@ -708,6 +774,57 @@ export default function App() {
     setToast("복사됨");
   }
 
+  function updateSettings(patch: Partial<AppSettings>) {
+    setSettings((current) => {
+      const next = { ...current, ...patch };
+      applyHotelSettings(next);
+      return next;
+    });
+    setToast("설정 저장됨");
+  }
+
+  function exportBackup() {
+    downloadFile(
+      "italy-trip-backup.json",
+      JSON.stringify({ version: 3, savedAt: new Date().toISOString(), routes, done, checks: checkedItems, settings }, null, 2),
+      "application/json"
+    );
+  }
+
+  function importBackup(file: File) {
+    file
+      .text()
+      .then((text) => {
+        const data = JSON.parse(text) as {
+          routes?: Record<string, RouteItem[]>;
+          done?: Record<string, boolean>;
+          checks?: Record<string, boolean>;
+          settings?: AppSettings;
+        };
+        if (data.routes) {
+          setRoutes({
+            ...emptyRoutes,
+            ...Object.fromEntries(
+              tripDays.map((day) => [
+                day.id,
+                Array.isArray(data.routes?.[day.id])
+                  ? data.routes[day.id].filter((item) => placesById.has(item.placeId))
+                  : [],
+              ])
+            ),
+          });
+        }
+        if (data.done) setDone(data.done);
+        if (data.checks) setCheckedItems(data.checks);
+        if (data.settings) {
+          applyHotelSettings(data.settings);
+          setSettings(data.settings);
+        }
+        setToast("백업 복원됨");
+      })
+      .catch(() => setToast("백업 파일을 읽지 못했어요"));
+  }
+
   function clearRoute() {
     setRoutes((current) => ({ ...current, [selectedDay.id]: [] }));
     setDone((current) => {
@@ -818,6 +935,10 @@ export default function App() {
             checkedItems={checkedItems}
             setCheckedItems={setCheckedItems}
             copyPhrase={copyPhrase}
+            settings={settings}
+            updateSettings={updateSettings}
+            exportBackup={exportBackup}
+            importBackup={importBackup}
           />
         )}
       </main>
@@ -1016,13 +1137,19 @@ function PlaceInsightCard({
 
       <p>{place.why}</p>
 
+      <div className="trait-row">
+        {traitBadges(place).map((badge) => (
+          <span key={badge}>{badge}</span>
+        ))}
+      </div>
+
       <div className="google-review-box">
         <div className="google-score">
           <Star size={18} />
           <strong>{google.rating ? google.rating.toFixed(1) : place.rank}</strong>
           <span>
             {google.isVerified
-              ? `Google 평점 · ${google.reviewCountLabel ?? "리뷰 다수"} · 수동 확인값`
+              ? `Google 평점 · ${google.reviewCountLabel ?? "리뷰 다수"} · ${google.lastChecked ?? "확인일 미기록"} 확인`
               : "내부 추천 점수 · Google 평점은 실시간 확인 권장"}
           </span>
         </div>
@@ -1831,9 +1958,9 @@ function RankingScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Ranking</p>
-          <h1>중요 장소만</h1>
-          <p className="subline">Must와 Good 위주, 낮은 우선순위는 제외</p>
+          <p className="eyebrow">Places</p>
+          <h1>장소 DB</h1>
+          <p className="subline">Must와 Good 위주 · 검색, 권역, 카테고리로 탐색</p>
         </div>
       </div>
 
@@ -1882,7 +2009,8 @@ function RankingScreen({
 
       <div className="place-list">
         {filtered.map((place, index) => {
-          const google = getPlaceScore(place, getEnhancement(place));
+          const enhancement = getEnhancement(place);
+          const google = getPlaceScore(place, enhancement);
           return (
             <article key={place.id} className="place-card">
               <div className="place-rank">{index + 1}</div>
@@ -1915,11 +2043,14 @@ function RankingScreen({
                   </span>
                   <span>{place.reservation}</span>
                 </div>
-                <div className="tag-row">
-                  {place.tags.slice(0, 5).map((tag) => (
-                    <span key={tag}>{tag}</span>
+                <div className="trait-row">
+                  {traitBadges(place).map((badge) => (
+                    <span key={badge}>{badge}</span>
                   ))}
                 </div>
+                {enhancement.highlights?.length ? (
+                  <p className="highlight-line">{enhancement.highlights.join(" · ")}</p>
+                ) : null}
                 <div className="card-actions">
                   <button
                     className="ghost-button compact"
@@ -1950,27 +2081,70 @@ function ClockIcon() {
   return <span className="clock-dot" aria-hidden="true" />;
 }
 
+function HotelSettingForm({
+  city,
+  current,
+  onSave,
+}: {
+  city: string;
+  current?: { lat: number; lng: number; label?: string };
+  onSave: (value: { lat: number; lng: number; label?: string }) => void;
+}) {
+  const [coords, setCoords] = useState(current ? `${current.lat}, ${current.lng}` : "");
+  const [label, setLabel] = useState(current?.label ?? "");
+  const match = coords.match(/(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/);
+
+  return (
+    <div className="hotel-form">
+      <strong>{city} 숙소</strong>
+      <input
+        value={coords}
+        onChange={(event) => setCoords(event.target.value)}
+        placeholder="위도, 경도 붙여넣기 (예: 41.9001, 12.4905)"
+        inputMode="text"
+      />
+      <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="숙소 이름 (선택)" />
+      <button
+        className="solid-button compact"
+        disabled={!match}
+        onClick={() => {
+          if (!match) return;
+          onSave({ lat: parseFloat(match[1]), lng: parseFloat(match[2]), label: label.trim() || undefined });
+        }}
+      >
+        <Check size={15} /> 저장
+      </button>
+    </div>
+  );
+}
+
 function MoreScreen({
   moreSection,
   setMoreSection,
   checkedItems,
   setCheckedItems,
   copyPhrase,
+  settings,
+  updateSettings,
+  exportBackup,
+  importBackup,
 }: {
   moreSection: MoreKey;
   setMoreSection: (key: MoreKey) => void;
   checkedItems: Record<string, boolean>;
   setCheckedItems: Dispatch<SetStateAction<Record<string, boolean>>>;
   copyPhrase: (text: string) => void;
+  settings: AppSettings;
+  updateSettings: (patch: Partial<AppSettings>) => void;
+  exportBackup: () => void;
+  importBackup: (file: File) => void;
 }) {
   const sections: { key: MoreKey; label: string; icon: ElementType }[] = [
-    { key: "safety", label: "안전", icon: Shield },
-    { key: "korean", label: "한국인", icon: Home },
+    { key: "safety", label: "안전·꿀팁", icon: Shield },
     { key: "foodGuide", label: "음식", icon: Utensils },
     { key: "phrases", label: "회화", icon: Languages },
     { key: "checklist", label: "체크", icon: ListChecks },
-    { key: "exports", label: "지도파일", icon: Download },
-    { key: "sources", label: "출처", icon: FileText },
+    { key: "data", label: "데이터·설정", icon: SettingsIcon },
   ];
 
   return (
@@ -1978,8 +2152,8 @@ function MoreScreen({
       <div className="screen-header">
         <div>
           <p className="eyebrow">More</p>
-          <h1>안전, 회화, 내보내기</h1>
-          <p className="subline">현장에서 자주 쓰는 것만 모음</p>
+          <h1>안전, 회화, 설정</h1>
+          <p className="subline">현장에서 자주 쓰는 것 + 숙소·백업 설정</p>
         </div>
       </div>
 
@@ -1997,6 +2171,14 @@ function MoreScreen({
 
       {moreSection === "safety" && (
         <div className="info-list">
+          <article className="info-card emergency-card">
+            <div className="section-title-row">
+              <h2>비상 연락</h2>
+              <Pill tone="warn">112</Pill>
+            </div>
+            <p>EU 긴급번호 112. 도난/분실은 숙소 프런트, 경찰서, 카드사 앱 순서로 처리.</p>
+            <p>주이탈리아 대한민국 대사관: 대표 +39 06 420 402 1, 근무시간 외 긴급 +39 335 185 0499.</p>
+          </article>
           {safetyNotes.map((note) => (
             <article key={note.title} className="info-card">
               <div className="section-title-row">
@@ -2006,23 +2188,11 @@ function MoreScreen({
               <p>{note.detail}</p>
             </article>
           ))}
-          <article className="info-card emergency-card">
-            <div className="section-title-row">
-              <h2>비상 연락</h2>
-              <Pill tone="warn">112</Pill>
-            </div>
-            <p>EU 긴급번호 112. 도난/분실은 숙소 프런트, 경찰서, 카드사 앱 순서로 처리.</p>
-          </article>
-        </div>
-      )}
-
-      {moreSection === "korean" && (
-        <div className="info-list">
           {koreanTravelGuides.map((guide) => (
             <article key={guide.title} className="info-card">
               <div className="section-title-row">
                 <h2>{guide.title}</h2>
-                <Pill tone="ok">K-Mode</Pill>
+                <Pill tone="ok">꿀팁</Pill>
               </div>
               <ul className="guide-list">
                 {guide.items.map((item) => (
@@ -2031,13 +2201,6 @@ function MoreScreen({
               </ul>
             </article>
           ))}
-          <article className="info-card emergency-card">
-            <div className="section-title-row">
-              <h2>한국인 긴급 연락</h2>
-              <Pill tone="warn">저장</Pill>
-            </div>
-            <p>주이탈리아 대한민국 대사관: 근무시간 대표번호 +39 06 420 402 1, 근무시간 외 긴급전화 +39 335 185 0499. 현지 긴급번호는 112.</p>
-          </article>
         </div>
       )}
 
@@ -2105,49 +2268,132 @@ function MoreScreen({
         </section>
       )}
 
-      {moreSection === "exports" && (
-        <section className="content-band export-panel">
-          <div className="export-actions">
-            <button className="solid-button" onClick={exportCsv}>
-              <Download size={17} />
-              CSV
-            </button>
-            <button className="ghost-button" onClick={exportKml}>
-              <Download size={17} />
-              KML
-            </button>
-          </div>
-          <div className="export-grid">
-            <div>
-              <MapPin size={20} />
-              <strong>{places.filter((place) => place.priority <= 2).length}</strong>
-              <span>핀</span>
+      {moreSection === "data" && (
+        <div className="info-list">
+          <section className="content-band settings-panel">
+            <div className="section-title-row">
+              <h2>숙소 설정</h2>
+              <Pill tone="warn">루트 기준점</Pill>
             </div>
-            <div>
-              <Star size={20} />
-              <strong>{places.filter((place) => place.priority === 1).length}</strong>
-              <span>Must</span>
+            <p className="settings-hint">
+              Google Maps에서 숙소를 길게 눌러 나오는 좌표를 복사해 붙여넣으세요. 모든 거리·루트·숙소 복귀가 이
+              좌표 기준으로 다시 계산됩니다.
+            </p>
+            <HotelSettingForm city="로마" current={settings.romeHotel} onSave={(value) => updateSettings({ romeHotel: value })} />
+            <HotelSettingForm
+              city="피렌체"
+              current={settings.florenceHotel}
+              onSave={(value) => updateSettings({ florenceHotel: value })}
+            />
+            <div className="settings-row">
+              <label>
+                시작 화면
+                <select
+                  value={settings.startTab ?? "map"}
+                  onChange={(event) => updateSettings({ startTab: event.target.value as TabKey })}
+                >
+                  {tabItems.map((tab) => (
+                    <option key={tab.key} value={tab.key}>
+                      {tab.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                기본 모드
+                <select
+                  value={settings.defaultMode ?? "default"}
+                  onChange={(event) => updateSettings({ defaultMode: event.target.value as ModeKey })}
+                >
+                  {Object.entries(modeLabels).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div>
-              <Train size={20} />
-              <strong>2</strong>
-              <span>도시</span>
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
 
-      {moreSection === "sources" && (
-        <div className="source-list">
-          {sources.map((source) => (
-            <a key={source.id} className="source-row" href={source.url} target="_blank" rel="noreferrer">
-              <span>
-                <strong>{source.label}</strong>
-                <small>{source.note}</small>
-              </span>
-              <ExternalLink size={16} />
-            </a>
-          ))}
+          <section className="content-band export-panel">
+            <div className="section-title-row">
+              <h2>백업</h2>
+              <Pill>JSON</Pill>
+            </div>
+            <p className="settings-hint">루트·완료 체크·설정을 파일로 저장하고, 다른 기기에서 복원합니다.</p>
+            <div className="export-actions">
+              <button className="solid-button" onClick={exportBackup}>
+                <Download size={17} />
+                백업 저장
+              </button>
+              <label className="ghost-button file-button">
+                <Upload size={17} />
+                복원
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) importBackup(file);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section className="content-band export-panel">
+            <div className="section-title-row">
+              <h2>지도 파일</h2>
+              <Pill>Google My Maps</Pill>
+            </div>
+            <div className="export-actions">
+              <button className="solid-button" onClick={exportCsv}>
+                <Download size={17} />
+                CSV
+              </button>
+              <button className="ghost-button" onClick={exportKml}>
+                <Download size={17} />
+                KML
+              </button>
+            </div>
+            <div className="export-grid">
+              <div>
+                <MapPin size={20} />
+                <strong>{places.filter((place) => place.priority <= 2).length}</strong>
+                <span>핀</span>
+              </div>
+              <div>
+                <Star size={20} />
+                <strong>{places.filter((place) => place.priority === 1).length}</strong>
+                <span>Must</span>
+              </div>
+              <div>
+                <Train size={20} />
+                <strong>2</strong>
+                <span>도시</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="content-band">
+            <div className="section-title-row">
+              <h2>출처</h2>
+              <Pill>{sources.length}</Pill>
+            </div>
+            <div className="source-list">
+              {sources.map((source) => (
+                <a key={source.id} className="source-row" href={source.url} target="_blank" rel="noreferrer">
+                  <span>
+                    <strong>{source.label}</strong>
+                    <small>{source.note}</small>
+                  </span>
+                  <ExternalLink size={16} />
+                </a>
+              ))}
+            </div>
+          </section>
         </div>
       )}
     </section>
