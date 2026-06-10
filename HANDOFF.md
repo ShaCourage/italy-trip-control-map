@@ -9,7 +9,8 @@
 
 ## 현재 상태
 
-- 브랜치: `main` · 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`) — **비공개 저장소**
+- 브랜치: `main` · 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`) — **공개 저장소**
+- **배포됨**: https://shacourage.github.io/italy-trip-control-map/ (main 푸시마다 자동 배포)
 - 작업 트리 깨끗, `origin/main`과 동기화됨
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
@@ -19,29 +20,21 @@
 
 ---
 
-## ⚠️ 사용자 결정 필요 — A3 배포
+## ✅ A3 배포 완료 (2026-06-11)
 
-GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거부됨(422)**. 셋 중 하나를 골라야 진행 가능:
-
-1. **저장소 공개 전환** (GitHub Settings → General → Danger Zone) — 비용 0. 코드와 여행 일정 데이터가
-   공개되지만, 민감정보(예약번호 등)는 localStorage에만 있어 노출되지 않음
-2. **GitHub Pro 업그레이드** — 비공개 유지한 채 Pages 사용
-3. **Vercel/Netlify 등 다른 호스팅** — 해당 서비스 계정 연결 필요
-
-결정 후 마무리 (약 2분, 인프라는 전부 준비됨):
-`.github/workflows/deploy.yml`의 `on:`에 `push: {branches: [main]}` 추가 →
-Actions 탭에서 *Deploy to GitHub Pages* 수동 1회 실행 → iPhone 홈 화면 추가 + 비행기 모드로 오프라인 확인.
-(베이스 경로·PWA·오프라인 캐시는 모두 완료. `sw.js` v2: navigation network-first, 위키 사진·폰트
-런타임 캐시, 지도 타일은 캐시 제외.)
+저장소 공개 전환 → GitHub Pages(Actions 빌드) 배포. **main 푸시마다 자동 재배포**.
+- 사이트: https://shacourage.github.io/italy-trip-control-map/ (200, 하위경로 `/italy-trip-control-map/` base 정상)
+- 활성화 과정에서 고친 것: ① 저장소 기본 워크플로 권한이 `read`라 `pages: write` 무력화 → `write`로 상향
+  ② `npm ci`가 lock 불일치(`@emnapi` optional deps 누락)로 실패 → `package-lock.json` sync
+  ③ `deploy.yml`에 `configure-pages@v5`(enablement) + `push: [main]` 트리거 추가
+- **남은 iPhone 실기 확인**(사용자): Safari로 사이트 열기 → 공유 → 홈 화면에 추가 → 비행기 모드로
+  오프라인 진입 확인(`sw.js` v2: navigation network-first, 위키 사진·폰트 런타임 캐시, 지도 타일 캐시 제외)
 
 ---
 
 ## 다음 할 일 (우선순위)
 
-### 1. A3 배포 마무리 — **사용자 결정 대기** (위 ⚠️ 참조)
-유일하게 외부 결정에 막힌 항목. 결정만 되면 코드 작업 거의 없음.
-
-### 2. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 현재 "대기")
+### 1. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 현재 "대기")
 "기본/추가"라는 현재 구분은 작업 이력일 뿐 의미 없음. 도시별로 합친다.
 
 - 현 상태(분산): `src/data.ts`(1,386줄, `places`+`sources`+`tripDays`) ·
@@ -54,12 +47,12 @@ Actions 탭에서 *Deploy to GitHub Pages* 수동 1회 실행 → iPhone 홈 화
   `npm run check:data`가 통과
 - 검증: `npm run build`(검사 통과) + 장소 179개 수 유지 + 프리뷰 장소 탭/지도 렌더 + 콘솔 0
 
-### 3. 사진 미해결 6곳 (`src/placeEnhancements.ts`의 `imageUrl`)
+### 2. 사진 미해결 6곳 (`src/placeEnhancements.ts`의 `imageUrl`)
 위키 문서가 없어 자동 굽기가 안 되는 식당들:
 `roscioli`, `armando-al-pantheon`, `sant-eustachio`, `tazza-doro`, `buca-lapi`, `forno-campo-de-fiori`
 → 직접 찍은 사진이나 라이선스 명확한 무료 이미지 URL을 `imageUrl`에 수동 지정. (안 하면 카테고리 그래픽 폴백 유지)
 
-### 4. 남은 P2 / 비고
+### 3. 남은 P2 / 비고
 - **C2** 일몰 시간 — 오늘 화면 계산값 노출 완료. 추후 해질녘 추천 모드와 더 연동 가능
 
 ---
