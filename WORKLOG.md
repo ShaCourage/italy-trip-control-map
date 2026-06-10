@@ -140,4 +140,16 @@ type TripTemplate = {
 
 ### 다음 세션 시작점
 - 사용자가 공개 전환/플랜 결정 시: deploy.yml 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 + 오프라인 확인
-- F1 잔여: screens/RankingScreen.tsx 분리 + 코드 스플리팅(청크 500kB 경고)
+- F1은 아래 후속 세션에서 완료. 다음 구조 작업 후보는 Today/Plan/More 화면 추가 분리
+
+---
+
+## 2026-06-10 후속 세션 — F1 구조 분리 완료
+
+- `App.tsx` 약 3,200줄 → 약 1,700줄로 축소
+- `src/appCore.ts`로 장소/템플릿/점수/거리/URL/사용자 장소 로직 분리
+- `src/components/place.tsx`로 장소 공용 UI 분리
+- `src/screens/MapScreen.tsx`, `src/screens/RankingScreen.tsx` 분리 및 lazy loading 적용
+- Rolldown vendor 그룹 분리로 500kB 청크 경고 제거
+- 최종 빌드: main 307.22kB, vendor 352.03kB, MapScreen 9.94kB, RankingScreen 7.13kB
+- 검증: build 통과, placeId/pairWith 217 ids 정상, 브라우저 장소 상세·지도 렌더링, 콘솔 오류 0
