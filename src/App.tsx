@@ -9,6 +9,7 @@ import {
   TileLayer,
   Tooltip,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
 import {
   AlertTriangle,
@@ -144,21 +145,21 @@ const filterLabels: Record<FilterKey, string> = {
 };
 
 const categoryColors: Record<PlaceCategory, string> = {
-  stay: "#24211f",
-  station: "#56616f",
-  attraction: "#e24a3b",
-  food: "#1f8f83",
-  cafe: "#c58418",
-  shopping: "#8f4bc8",
-  view: "#2d6fbb",
-  rest: "#6f7d45",
+  stay: "#2b241c",
+  station: "#7a7164",
+  attraction: "#c2502e",
+  food: "#2f7d6d",
+  cafe: "#b07d2a",
+  shopping: "#8a5bb5",
+  view: "#3a6ea8",
+  rest: "#76814e",
 };
 
 const tabItems = [
-  { key: "map" as const, label: "지도", icon: MapIcon },
   { key: "today" as const, label: "오늘", icon: Sparkles },
-  { key: "plan" as const, label: "일정", icon: CalendarDays },
+  { key: "map" as const, label: "지도", icon: MapIcon },
   { key: "ranking" as const, label: "장소", icon: Trophy },
+  { key: "plan" as const, label: "일정", icon: CalendarDays },
   { key: "more" as const, label: "더보기", icon: FileText },
 ];
 
@@ -659,11 +660,19 @@ function FitMap({ points }: { points: [number, number][] }) {
   return null;
 }
 
+function ZoomWatcher({ onZoom }: { onZoom: (zoom: number) => void }) {
+  const map = useMapEvents({
+    zoomend: () => onZoom(map.getZoom()),
+  });
+  return null;
+}
+
 function PlaceMapMarker({
   place,
   routeIndex,
   isSelected,
   inRoute,
+  showLabel,
   onSelect,
   addToRoute,
   replaceNext,
@@ -672,15 +681,34 @@ function PlaceMapMarker({
   routeIndex?: number;
   isSelected: boolean;
   inRoute: boolean;
+  showLabel: boolean;
   onSelect: () => void;
   addToRoute: (id: string) => void;
   replaceNext: (id: string) => void;
 }) {
   const google = getPlaceScore(place);
   const icon = useMemo(() => {
+    const color = categoryColors[place.category];
+    // 라벨은 루트 순번·선택·확대 시에만 — 도시 줌에서 136개 라벨이 겹쳐 쌓이는 문제 방지
+    if (!showLabel) {
+      if (typeof routeIndex === "number") {
+        return L.divIcon({
+          className: "route-number-marker",
+          html: `<span>${routeIndex + 1}</span>`,
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+        });
+      }
+      const size = isSelected ? 22 : 15;
+      return L.divIcon({
+        className: "place-dot-wrap",
+        html: `<i class="place-dot-marker ${isSelected ? "selected" : ""}" style="--dot-color:${color}"></i>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
+    }
     const label = escapeHtml(getShortLabel(place));
     const category = escapeHtml(categoryShortLabels[place.category]);
-    const color = categoryColors[place.category];
     const routeBadge =
       typeof routeIndex === "number"
         ? `<span>${routeIndex + 1}</span>`
@@ -691,7 +719,7 @@ function PlaceMapMarker({
       iconSize: [120, 34],
       iconAnchor: [18, 17],
     });
-  }, [inRoute, isSelected, place, routeIndex]);
+  }, [inRoute, isSelected, place, routeIndex, showLabel]);
 
   return (
     <Marker position={[place.lat, place.lng]} icon={icon} eventHandlers={{ click: onSelect }}>
@@ -756,7 +784,7 @@ function IconButton({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabKey>(initialSettings.startTab ?? "map");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialSettings.startTab ?? "today");
   const [days, setDays] = useState<TripDay[]>(initialDays);
   const [selectedDayId, setSelectedDayId] = useState(initialDayId);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -1261,6 +1289,10 @@ export default function App() {
             customPlaces={customPlaces}
             addCustomPlace={addCustomPlace}
             removeCustomPlace={removeCustomPlace}
+            selectedRoute={selectedRoute}
+            replaceNext={replaceNext}
+            notes={notes}
+            setPlaceNote={setPlaceNote}
           />
         )}
         {activeTab === "more" && (
@@ -1559,6 +1591,8 @@ function PlaceInsightCard({
 
       <p>{place.why}</p>
 
+      {enhancement.story ? <p className="place-story">{enhancement.story}</p> : null}
+
       <div className="trait-row">
         {traitBadges(place).map((badge) => (
           <span key={badge}>{badge}</span>
@@ -1825,6 +1859,7 @@ function MapScreen({
   notes: Record<string, string>;
   setPlaceNote: (placeId: string, text: string) => void;
 }) {
+  const [mapZoom, setMapZoom] = useState(13);
   const nextPlace = nextStop ? getPlace(nextStop.placeId) : undefined;
   const selectedPlace = placesById.get(selectedPlaceId);
   const selectedGoogle = selectedPlace ? getPlaceScore(selectedPlace, getEnhancement(selectedPlace)) : undefined;
@@ -1880,17 +1915,20 @@ function MapScreen({
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <FitMap points={mapFitPoints.length ? mapFitPoints : routePositions} />
-            {routePositions.length > 1 && <Polyline positions={routePositions} pathOptions={{ color: "#24211f", weight: 4, opacity: 0.72 }} />}
+            <ZoomWatcher onZoom={setMapZoom} />
+            {routePositions.length > 1 && <Polyline positions={routePositions} pathOptions={{ color: "#c2502e", weight: 4, opacity: 0.78 }} />}
             {mapPlaces.map((place) => {
               const isSelected = selectedPlaceId === place.id;
               const inRoute = selectedRoute.some((item) => item.placeId === place.id);
+              const routeIndex = routeIndexByPlaceId.get(place.id);
               return (
                 <PlaceMapMarker
                   key={place.id}
                   place={place}
-                  routeIndex={routeIndexByPlaceId.get(place.id)}
+                  routeIndex={routeIndex}
                   isSelected={isSelected}
                   inRoute={inRoute}
+                  showLabel={isSelected || mapZoom >= 15}
                   onSelect={() => setSelectedPlaceId(place.id)}
                   addToRoute={addToRoute}
                   replaceNext={replaceNext}
@@ -2434,6 +2472,14 @@ function PlanScreen({
   );
 }
 
+type RankSortKey = "popular" | "rating" | "fast";
+
+const rankSortLabels: Record<RankSortKey, string> = {
+  popular: "인기순",
+  rating: "평점순",
+  fast: "소요시간 짧은 순",
+};
+
 function RankingScreen({
   rankingCategory,
   setRankingCategory,
@@ -2447,6 +2493,10 @@ function RankingScreen({
   customPlaces,
   addCustomPlace,
   removeCustomPlace,
+  selectedRoute,
+  replaceNext,
+  notes,
+  setPlaceNote,
 }: {
   rankingCategory: PlaceCategory | "all";
   setRankingCategory: (category: PlaceCategory | "all") => void;
@@ -2460,12 +2510,23 @@ function RankingScreen({
   customPlaces: Place[];
   addCustomPlace: (input: { name: string; city: City; category: PlaceCategory; lat: number; lng: number; memo?: string }) => void;
   removeCustomPlace: (placeId: string) => void;
+  selectedRoute: RouteItem[];
+  replaceNext: (id: string) => void;
+  notes: Record<string, string>;
+  setPlaceNote: (placeId: string, text: string) => void;
 }) {
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [sortKey, setSortKey] = useState<RankSortKey>("popular");
+  const [detailId, setDetailId] = useState<string>();
   const customIds = new Set(customPlaces.map((place) => place.id));
   const categories: (PlaceCategory | "all")[] = ["all", "attraction", "food", "cafe", "view", "shopping"];
+  const sorters: Record<RankSortKey, (a: Place, b: Place) => number> = {
+    popular: (a, b) => b.rank - a.rank,
+    rating: (a, b) =>
+      (getPlaceScore(b).rating ?? 0) - (getPlaceScore(a).rating ?? 0) || b.rank - a.rank,
+    fast: (a, b) => a.durationMin - b.durationMin || b.rank - a.rank,
+  };
   const filtered = places
-    .filter((place) => place.priority <= 2)
     .filter((place) => place.category !== "stay" && place.category !== "station")
     .filter((place) => rankingCategory === "all" || place.category === rankingCategory)
     .filter((place) => rankingCity === "all" || place.city === rankingCity)
@@ -2474,7 +2535,8 @@ function RankingScreen({
         .toLowerCase()
         .includes(query.toLowerCase())
     )
-    .sort((a, b) => b.rank - a.rank);
+    .sort(sorters[sortKey]);
+  const detailPlace = detailId ? placesById.get(detailId) : undefined;
 
   const clusters = Array.from(
     places
@@ -2492,9 +2554,9 @@ function RankingScreen({
     <section className="screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">Places</p>
-          <h1>장소 DB</h1>
-          <p className="subline">Must와 Good 위주 · 검색, 권역, 카테고리로 탐색</p>
+          <p className="eyebrow">Roma · Firenze</p>
+          <h1>인기 장소</h1>
+          <p className="subline">명소·맛집·카페를 인기순으로 — 카드를 누르면 상세 정보</p>
         </div>
         <button className="ghost-button compact" onClick={() => setShowCustomForm((current) => !current)}>
           <Plus size={16} />
@@ -2561,83 +2623,121 @@ function RankingScreen({
         </div>
       </section>
 
-      <div className="place-list">
-        {filtered.map((place, index) => {
-          const enhancement = getEnhancement(place);
-          const google = getPlaceScore(place, enhancement);
-          return (
-            <article key={place.id} className="place-card">
-              <div className="place-rank">{index + 1}</div>
-              <div className="place-card-main">
-                <div className="place-title-row">
-                  <div>
-                    <small>
-                      {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
-                    </small>
-                    <h2>{place.koName}</h2>
-                  </div>
-                  <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
-                </div>
-                <p>{place.why}</p>
-                <div className="place-meta">
-                  <span>
-                    <Star size={14} /> {google.ratingText}
-                    {google.reviewCountLabel ? ` · ${google.reviewCountLabel}` : ""}
-                  </span>
-                  <span>{google.priceLevel}</span>
-                  <span>혼잡 {google.crowdLevel}</span>
-                  <span>
-                    <ClockIcon /> {place.durationMin}분
-                  </span>
-                  <span>
-                    <Camera size={14} /> 사진 {place.photo}
-                  </span>
-                  <span>
-                    <Shield size={14} /> {place.safety}
-                  </span>
-                  <span>{place.reservation}</span>
-                </div>
-                <div className="trait-row">
-                  {traitBadges(place).map((badge) => (
-                    <span key={badge}>{badge}</span>
-                  ))}
-                </div>
-                {enhancement.highlights?.length ? (
-                  <p className="highlight-line">{enhancement.highlights.join(" · ")}</p>
-                ) : null}
-                <div className="card-actions">
-                  <button
-                    className="ghost-button compact"
-                    onClick={() => {
-                      setSelectedPlaceId(place.id);
-                      setActiveTab("map");
-                    }}
-                  >
-                    <MapPin size={16} /> 지도
-                  </button>
-                  <button className="solid-button compact" onClick={() => addToRoute(place.id)}>
-                    <Plus size={16} /> 추가
-                  </button>
-                  <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
-                    Maps <ExternalLink size={14} />
-                  </a>
-                  {customIds.has(place.id) && (
-                    <button
-                      className="ghost-button compact"
-                      onClick={() => {
-                        if (window.confirm(`'${place.koName}'을(를) 삭제할까요?`)) removeCustomPlace(place.id);
-                      }}
-                    >
-                      <X size={16} /> 삭제
-                    </button>
-                  )}
-                </div>
-              </div>
-            </article>
-          );
-        })}
+      <div className="sort-row">
+        <span>{filtered.length}곳 · {rankSortLabels[sortKey]}</span>
+        <select value={sortKey} onChange={(event) => setSortKey(event.target.value as RankSortKey)} aria-label="정렬 기준">
+          {(Object.keys(rankSortLabels) as RankSortKey[]).map((key) => (
+            <option key={key} value={key}>
+              {rankSortLabels[key]}
+            </option>
+          ))}
+        </select>
       </div>
+
+      <div className="place-list">
+        {filtered.map((place, index) => (
+          <PlacePhotoCard key={place.id} place={place} rank={index + 1} onOpen={() => setDetailId(place.id)} />
+        ))}
+      </div>
+
+      {detailPlace && (
+        <div className="sheet-backdrop" onClick={() => setDetailId(undefined)}>
+          <div className="sheet" onClick={(event) => event.stopPropagation()}>
+            <div className="sheet-handle" />
+            <button className="sheet-close" onClick={() => setDetailId(undefined)} aria-label="닫기">
+              <X size={16} />
+            </button>
+            <PlaceInsightCard
+              place={detailPlace}
+              selectedRoute={selectedRoute}
+              addToRoute={addToRoute}
+              replaceNext={replaceNext}
+              setSelectedPlaceId={setDetailId}
+              note={notes[detailPlace.id]}
+              setPlaceNote={setPlaceNote}
+            />
+            <div className="card-actions" style={{ marginTop: 10 }}>
+              <button
+                className="ghost-button compact"
+                onClick={() => {
+                  setSelectedPlaceId(detailPlace.id);
+                  setActiveTab("map");
+                  setDetailId(undefined);
+                }}
+              >
+                <MapPin size={16} /> 지도에서 보기
+              </button>
+              {customIds.has(detailPlace.id) && (
+                <button
+                  className="ghost-button compact"
+                  onClick={() => {
+                    if (window.confirm(`'${detailPlace.koName}'을(를) 삭제할까요?`)) {
+                      removeCustomPlace(detailPlace.id);
+                      setDetailId(undefined);
+                    }
+                  }}
+                >
+                  <X size={16} /> 삭제
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
+  );
+}
+
+function PlacePhotoCard({ place, rank, onOpen }: { place: Place; rank: number; onOpen: () => void }) {
+  const enhancement = getEnhancement(place);
+  const { imageUrl } = usePlaceMedia(place, enhancement);
+  const score = getPlaceScore(place, enhancement);
+  const badges = traitBadges(place).slice(0, 3);
+
+  return (
+    <article
+      className="place-photo-card"
+      style={{ ["--photo-color" as string]: categoryColors[place.category] }}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
+      <div className="card-photo">
+        {imageUrl ? (
+          <img src={imageUrl} alt={place.koName} loading="lazy" />
+        ) : (
+          <div className="photo-fallback">
+            <small>{categoryShortLabels[place.category]}</small>
+            <strong>{getShortLabel(place)}</strong>
+          </div>
+        )}
+        <span className={rank <= 3 ? "rank-flag top" : "rank-flag"}>{rank}위</span>
+      </div>
+      <div className="card-body">
+        <small>
+          {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
+        </small>
+        <h3>
+          <span>{place.koName}</span>
+          <span className={score.isVerified ? "score-chip" : "score-chip internal"}>
+            <Star size={13} />
+            {score.isVerified ? score.rating?.toFixed(1) : `${place.rank}점`}
+          </span>
+        </h3>
+        <p className="card-desc">{place.why}</p>
+        <div className="trait-row">
+          {badges.map((badge) => (
+            <span key={badge}>{badge}</span>
+          ))}
+        </div>
+      </div>
+    </article>
   );
 }
 
