@@ -2025,3 +2025,82 @@ input:focus {
   gap: 8px;
   cursor: pointer;
 }
+
+/* 셋업 화면 / 일정·장소 커스텀 폼 */
+.setup-screen {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.setup-card {
+  display: grid;
+  gap: 12px;
+}
+
+.setup-card .solid-button {
+  justify-self: start;
+}
+
+.day-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.day-add-form input,
+.day-add-form select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.day-add-form button {
+  justify-self: start;
+}
+
+.day-card-head-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.day-card-head-row .day-card-head {
+  min-width: 0;
+}
+
+.custom-place-form {
+  display: grid;
+  gap: 8px;
+}
+
+.custom-place-form input,
+.custom-place-form select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.custom-place-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.custom-place-form button {
+  justify-self: start;
+}
+
+@media (min-width: 560px) {
+  .day-add-form {
+    grid-template-columns: 150px 110px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}

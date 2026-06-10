@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import {
   categoryLabels,
+  City,
   cityLabels,
   packingChecklist,
   phraseGroups,
@@ -52,7 +53,8 @@ import {
   places as basePlaces,
   safetyNotes,
   sources as baseSources,
-  tripDays,
+  TripDay,
+  tripDays as templateDays,
 } from "./data";
 import { extraPlaces, extraSources, foodOrderGuides, koreanTravelGuides } from "./extraData";
 import { categoryShortLabels, placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
@@ -152,11 +154,23 @@ const tabItems = [
   { key: "more" as const, label: "더보기", icon: FileText },
 ];
 
-const places = [...basePlaces, ...extraPlaces];
+// id 중복 시 나중 항목이 이긴다 — 중복은 React key 충돌로 화면이 꼬이므로 개발 중 경고
+const places = (() => {
+  const merged = new Map<string, Place>();
+  for (const place of [...basePlaces, ...extraPlaces]) {
+    if (merged.has(place.id) && import.meta.env.DEV) {
+      console.warn(`[data] 중복 장소 id: ${place.id} — 나중 항목으로 대체됨`);
+    }
+    merged.set(place.id, place);
+  }
+  return [...merged.values()];
+})();
 const sources = [...baseSources, ...extraSources];
 
-const recommendedRoutes = Object.fromEntries(
-  tripDays.map((day) => [
+// 로마·피렌체 6/19-28 기본 플랜은 "템플릿"이다.
+// 앱은 빈 일정으로 시작하고, 사용자가 템플릿을 적용하거나 날짜를 직접 만든다.
+const templateRoutes = Object.fromEntries(
+  templateDays.map((day) => [
     day.id,
     day.route.map((stop, index) => ({
       uid: `${day.id}-recommended-${index}-${stop.placeId}`,
@@ -167,8 +181,6 @@ const recommendedRoutes = Object.fromEntries(
     })),
   ])
 ) as Record<string, RouteItem[]>;
-
-const emptyRoutes = Object.fromEntries(tripDays.map((day) => [day.id, []])) as Record<string, RouteItem[]>;
 
 const placesById = new Map(places.map((place) => [place.id, place]));
 
@@ -431,37 +443,94 @@ function cloneRoute(dayId: string, route: RouteItem[], prefix = "route") {
   }));
 }
 
-// 추천 코스의 uid는 고정값이라 새로고침해도 완료 체크가 유지된다.
-function defaultRoutes() {
+const ROUTES_KEY = "italy-trip-custom-routes-v2";
+const DAYS_KEY = "italy-trip-days-v1";
+const CUSTOM_PLACES_KEY = "italy-trip-custom-places-v1";
+
+function sanitizeRoutes(parsed: unknown): Record<string, RouteItem[]> {
+  if (!parsed || typeof parsed !== "object") return {};
   return Object.fromEntries(
-    tripDays.map((day) => [day.id, (recommendedRoutes[day.id] ?? []).map((item) => ({ ...item }))])
-  ) as Record<string, RouteItem[]>;
+    Object.entries(parsed as Record<string, RouteItem[]>).map(([dayId, items]) => [
+      dayId,
+      Array.isArray(items)
+        ? items.filter((item) => item && placesById.has(item.placeId)).map((item) => ({ ...item }))
+        : [],
+    ])
+  );
 }
 
-function loadStoredRoutes() {
-  if (typeof window === "undefined") return defaultRoutes();
+function loadStoredRoutes(): Record<string, RouteItem[]> {
+  if (typeof window === "undefined") return {};
   try {
-    const raw = window.localStorage.getItem("italy-trip-custom-routes-v2");
-    if (!raw) return defaultRoutes();
-    const parsed = JSON.parse(raw) as Record<string, RouteItem[]>;
-    const restored = {
-      ...emptyRoutes,
-      ...Object.fromEntries(
-        tripDays.map((day) => [
-          day.id,
-          Array.isArray(parsed[day.id])
-            ? parsed[day.id].filter((item) => placesById.has(item.placeId)).map((item) => ({ ...item }))
-            : [],
-        ])
-      ),
-    };
-    // 전부 빈 상태로 저장돼 있으면(이전 버전 흔적) 추천 코스로 시작
-    const hasAnyStop = Object.values(restored).some((route) => route.length > 0);
-    return hasAnyStop ? restored : defaultRoutes();
+    const raw = window.localStorage.getItem(ROUTES_KEY);
+    return raw ? sanitizeRoutes(JSON.parse(raw)) : {};
   } catch {
-    return defaultRoutes();
+    return {};
   }
 }
+
+// 기본은 빈 일정. 단, 이전 버전에서 루트를 만들어둔 흔적이 있으면 템플릿 일정으로 복원해 데이터를 살린다.
+function loadStoredDays(): TripDay[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(DAYS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as TripDay[];
+      if (Array.isArray(parsed)) {
+        return parsed.filter((day) => day && typeof day.id === "string" && typeof day.date === "string");
+      }
+    }
+  } catch {
+    return [];
+  }
+  try {
+    const legacy = window.localStorage.getItem(ROUTES_KEY);
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as Record<string, RouteItem[]>;
+      const hasAny = Object.values(parsed).some((route) => Array.isArray(route) && route.length > 0);
+      if (hasAny) return templateDays.map((day) => ({ ...day }));
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+function loadCustomPlaces(): Place[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_PLACES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Place[];
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (place) =>
+            place &&
+            typeof place.id === "string" &&
+            typeof place.lat === "number" &&
+            typeof place.lng === "number"
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+// 사용자 장소를 전역 풀에 등록 — places/placesById는 화면 전체가 읽는 단일 소스
+function registerPlace(place: Place) {
+  if (placesById.has(place.id)) return;
+  places.push(place);
+  placesById.set(place.id, place);
+}
+
+function unregisterPlace(placeId: string) {
+  const index = places.findIndex((place) => place.id === placeId);
+  if (index >= 0) places.splice(index, 1);
+  placesById.delete(placeId);
+}
+
+const initialCustomPlaces = loadCustomPlaces();
+initialCustomPlaces.forEach(registerPlace);
 
 function loadStoredRecord(key: string): Record<string, boolean> {
   if (typeof window === "undefined") return {};
@@ -478,7 +547,28 @@ function localISODate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-const initialDayId = (tripDays.find((day) => day.id === localISODate()) ?? tripDays[0]).id;
+const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+
+function makeDayLabel(date: string) {
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return `${parsed.getMonth() + 1}/${parsed.getDate()} ${dayNames[parsed.getDay()]}`;
+}
+
+const emptyDay: TripDay = {
+  id: "__empty__",
+  date: "",
+  label: "",
+  city: "rome",
+  title: "일정 없음",
+  areaFocus: "",
+  route: [],
+  fallback: [],
+  checklist: [],
+};
+
+const initialDays = loadStoredDays();
+const initialDayId = (initialDays.find((day) => day.id === localISODate()) ?? initialDays[0])?.id ?? "";
 
 function FitMap({ points }: { points: [number, number][] }) {
   const map = useMap();
@@ -593,13 +683,17 @@ function IconButton({
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>(initialSettings.startTab ?? "map");
+  const [days, setDays] = useState<TripDay[]>(initialDays);
   const [selectedDayId, setSelectedDayId] = useState(initialDayId);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [mode, setMode] = useState<ModeKey>(initialSettings.defaultMode ?? "default");
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
+  const [customPlaces, setCustomPlaces] = useState<Place[]>(initialCustomPlaces);
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
   const [done, setDone] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-done-v1"));
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string>(recommendedRoutes[initialDayId][1]?.placeId ?? places[0].id);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string>(
+    templateRoutes[initialDayId]?.[1]?.placeId ?? places[0].id
+  );
   const [rankingCategory, setRankingCategory] = useState<PlaceCategory | "all">("all");
   const [rankingCity, setRankingCity] = useState<"all" | "rome" | "florence">("all");
   const [query, setQuery] = useState("");
@@ -607,7 +701,8 @@ export default function App() {
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-checks-v1"));
   const [toast, setToast] = useState("");
 
-  const selectedDay = tripDays.find((day) => day.id === selectedDayId) ?? tripDays[0];
+  const selectedDay = days.find((day) => day.id === selectedDayId) ?? days[0] ?? emptyDay;
+  const showSetup = days.length === 0 && (activeTab === "map" || activeTab === "today" || activeTab === "plan");
   const selectedRoute = routes[selectedDay.id] ?? [];
   const selectedRoutePlaces = selectedRoute.map((item) => getPlace(item.placeId));
   const relevantCities = useMemo(() => new Set(selectedRoutePlaces.map((place) => place.city).concat(selectedDay.city)), [selectedRoutePlaces, selectedDay.city]);
@@ -637,6 +732,14 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    window.localStorage.setItem(DAYS_KEY, JSON.stringify(days));
+  }, [days]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CUSTOM_PLACES_KEY, JSON.stringify(customPlaces));
+  }, [customPlaces]);
 
   const mapPlaces = useMemo(() => {
     const routeIds = new Set(selectedRoute.map((item) => item.placeId));
@@ -694,13 +797,102 @@ export default function App() {
 
   function setDay(dayId: string) {
     setSelectedDayId(dayId);
-    const day = tripDays.find((item) => item.id === dayId);
+    const day = days.find((item) => item.id === dayId);
     const currentRoute = routes[dayId] ?? [];
     if (currentRoute[0]) {
       setSelectedPlaceId(currentRoute[0].placeId);
       return;
     }
     if (day?.route[1]) setSelectedPlaceId(day.route[1].placeId);
+  }
+
+  // 템플릿: 로마·피렌체 6/19-28 전체 일정 + 추천 코스를 채운다
+  function applyTemplate() {
+    const newDays = templateDays.map((day) => ({ ...day }));
+    setDays(newDays);
+    setRoutes(
+      Object.fromEntries(
+        newDays.map((day) => [day.id, (templateRoutes[day.id] ?? []).map((item) => ({ ...item }))])
+      )
+    );
+    const todayMatch = newDays.find((day) => day.id === localISODate()) ?? newDays[0];
+    setSelectedDayId(todayMatch.id);
+    setToast("로마·피렌체 템플릿 적용됨");
+  }
+
+  function addDay(input: { date: string; city: City; title?: string }) {
+    const id = days.some((day) => day.id === input.date) ? `${input.date}-${days.length}` : input.date;
+    const day: TripDay = {
+      id,
+      date: input.date,
+      label: makeDayLabel(input.date),
+      city: input.city,
+      title: input.title?.trim() || "직접 만든 일정",
+      areaFocus: "직접 구성",
+      route: [],
+      fallback: [],
+      checklist: [],
+    };
+    setDays((current) => [...current, day].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id)));
+    setSelectedDayId(id);
+    setToast(`${day.label} 추가됨`);
+  }
+
+  function removeDay(dayId: string) {
+    setDays((current) => current.filter((day) => day.id !== dayId));
+    setRoutes((current) => {
+      const next = { ...current };
+      delete next[dayId];
+      return next;
+    });
+    if (selectedDayId === dayId) {
+      const remaining = days.filter((day) => day.id !== dayId);
+      setSelectedDayId(remaining[0]?.id ?? "");
+    }
+    setToast("날짜 삭제됨");
+  }
+
+  function addCustomPlace(input: { name: string; city: City; category: PlaceCategory; lat: number; lng: number; memo?: string }) {
+    const place: Place = {
+      id: `custom-${Date.now()}`,
+      city: input.city,
+      name: input.name,
+      koName: input.name,
+      category: input.category,
+      area: "내 장소",
+      lat: input.lat,
+      lng: input.lng,
+      priority: 2,
+      rank: 60,
+      durationMin: 45,
+      reservation: "확인",
+      bestTime: "자유",
+      price: "확인",
+      safety: "보통",
+      photo: 2,
+      girlsTripFit: 3,
+      tags: ["내장소"],
+      why: input.memo?.trim() || "직접 추가한 장소.",
+      tips: [],
+      pairWith: [],
+      sourceIds: [],
+    };
+    registerPlace(place);
+    setCustomPlaces((current) => [...current, place]);
+    setSelectedPlaceId(place.id);
+    setToast("내 장소 추가됨");
+  }
+
+  function removeCustomPlace(placeId: string) {
+    unregisterPlace(placeId);
+    setCustomPlaces((current) => current.filter((place) => place.id !== placeId));
+    setRoutes((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([dayId, items]) => [dayId, items.filter((item) => item.placeId !== placeId)])
+      )
+    );
+    if (selectedPlaceId === placeId) setSelectedPlaceId(places[0].id);
+    setToast("내 장소 삭제됨");
   }
 
   function addToRoute(placeId: string) {
@@ -786,7 +978,11 @@ export default function App() {
   function exportBackup() {
     downloadFile(
       "italy-trip-backup.json",
-      JSON.stringify({ version: 3, savedAt: new Date().toISOString(), routes, done, checks: checkedItems, settings }, null, 2),
+      JSON.stringify(
+        { version: 4, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, settings },
+        null,
+        2
+      ),
       "application/json"
     );
   }
@@ -796,24 +992,22 @@ export default function App() {
       .text()
       .then((text) => {
         const data = JSON.parse(text) as {
+          days?: TripDay[];
+          customPlaces?: Place[];
           routes?: Record<string, RouteItem[]>;
           done?: Record<string, boolean>;
           checks?: Record<string, boolean>;
           settings?: AppSettings;
         };
-        if (data.routes) {
-          setRoutes({
-            ...emptyRoutes,
-            ...Object.fromEntries(
-              tripDays.map((day) => [
-                day.id,
-                Array.isArray(data.routes?.[day.id])
-                  ? data.routes[day.id].filter((item) => placesById.has(item.placeId))
-                  : [],
-              ])
-            ),
-          });
+        if (Array.isArray(data.customPlaces)) {
+          data.customPlaces.forEach(registerPlace);
+          setCustomPlaces(data.customPlaces);
         }
+        if (Array.isArray(data.days)) {
+          setDays(data.days);
+          setSelectedDayId(data.days[0]?.id ?? "");
+        }
+        if (data.routes) setRoutes(sanitizeRoutes(data.routes));
         if (data.done) setDone(data.done);
         if (data.checks) setCheckedItems(data.checks);
         if (data.settings) {
@@ -841,7 +1035,7 @@ export default function App() {
       const currentIds = new Set(currentItems.map((item) => item.placeId));
       const recommended = cloneRoute(
         selectedDay.id,
-        (recommendedRoutes[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
+        (templateRoutes[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
         mode === "replace" ? "apply" : "append"
       );
       if (mode === "replace") return { ...current, [selectedDay.id]: recommended };
@@ -857,8 +1051,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <main className="app-main">
-        {activeTab === "map" && (
+        {showSetup && <SetupScreen applyTemplate={applyTemplate} addDay={addDay} />}
+        {!showSetup && activeTab === "map" && (
           <MapScreen
+            days={days}
             selectedDayId={selectedDayId}
             setDay={setDay}
             selectedDay={selectedDay}
@@ -885,8 +1081,9 @@ export default function App() {
 	            applyRecommendedRoute={applyRecommendedRoute}
 	          />
         )}
-        {activeTab === "today" && (
+        {!showSetup && activeTab === "today" && (
           <TodayScreen
+            days={days}
             selectedDay={selectedDay}
             selectedRoute={selectedRoute}
             done={done}
@@ -900,20 +1097,24 @@ export default function App() {
             setCheckedItems={setCheckedItems}
           />
         )}
-        {activeTab === "plan" && (
+        {!showSetup && activeTab === "plan" && (
           <PlanScreen
+            days={days}
             selectedDayId={selectedDayId}
             setDay={setDay}
-	            routes={routes}
-	            setActiveTab={setActiveTab}
-	            applyRecommendedRoute={(dayId) => {
-	              const day = tripDays.find((item) => item.id === dayId);
-	              if (!day) return;
-	              setSelectedDayId(dayId);
-	              setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, recommendedRoutes[dayId] ?? [], "plan-apply") }));
-	              setToast("추천 코스 적용됨");
-	            }}
-	          />
+            routes={routes}
+            setActiveTab={setActiveTab}
+            addDay={addDay}
+            removeDay={removeDay}
+            applyTemplate={applyTemplate}
+            applyRecommendedRoute={(dayId) => {
+              const day = days.find((item) => item.id === dayId);
+              if (!day) return;
+              setSelectedDayId(dayId);
+              setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, templateRoutes[dayId] ?? [], "plan-apply") }));
+              setToast("추천 코스 적용됨");
+            }}
+          />
         )}
         {activeTab === "ranking" && (
           <RankingScreen
@@ -926,6 +1127,9 @@ export default function App() {
             addToRoute={addToRoute}
             setSelectedPlaceId={setSelectedPlaceId}
             setActiveTab={setActiveTab}
+            customPlaces={customPlaces}
+            addCustomPlace={addCustomPlace}
+            removeCustomPlace={removeCustomPlace}
           />
         )}
         {activeTab === "more" && (
@@ -964,16 +1168,96 @@ export default function App() {
   );
 }
 
-function DayStrip({ selectedDayId, setDay }: { selectedDayId: string; setDay: (id: string) => void }) {
+function DayStrip({ days, selectedDayId, setDay }: { days: TripDay[]; selectedDayId: string; setDay: (id: string) => void }) {
   return (
     <div className="day-strip" aria-label="날짜 선택">
-      {tripDays.map((day) => (
+      {days.map((day) => (
         <button key={day.id} className={selectedDayId === day.id ? "day-chip active" : "day-chip"} onClick={() => setDay(day.id)}>
           <span>{day.label}</span>
           <small>{cityLabels[day.city]}</small>
         </button>
       ))}
     </div>
+  );
+}
+
+function DayAddForm({ addDay }: { addDay: (input: { date: string; city: City; title?: string }) => void }) {
+  const [date, setDate] = useState("");
+  const [city, setCity] = useState<City>("rome");
+  const [title, setTitle] = useState("");
+
+  return (
+    <div className="day-add-form">
+      <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="날짜" />
+      <select value={city} onChange={(event) => setCity(event.target.value as City)} aria-label="도시">
+        {(Object.keys(cityLabels) as City[]).map((key) => (
+          <option key={key} value={key}>
+            {cityLabels[key]}
+          </option>
+        ))}
+      </select>
+      <input
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="제목 (예: 바티칸 + 트라스테베레)"
+        aria-label="일정 제목"
+      />
+      <button
+        className="solid-button compact"
+        disabled={!date}
+        onClick={() => {
+          if (!date) return;
+          addDay({ date, city, title });
+          setTitle("");
+        }}
+      >
+        <Plus size={15} /> 날짜 추가
+      </button>
+    </div>
+  );
+}
+
+function SetupScreen({
+  applyTemplate,
+  addDay,
+}: {
+  applyTemplate: () => void;
+  addDay: (input: { date: string; city: City; title?: string }) => void;
+}) {
+  return (
+    <section className="screen setup-screen">
+      <div className="screen-header">
+        <div>
+          <p className="eyebrow">Start</p>
+          <h1>여행 일정 만들기</h1>
+          <p className="subline">아직 일정이 비어 있어요. 템플릿으로 시작하거나 날짜를 직접 추가하세요.</p>
+        </div>
+      </div>
+
+      <article className="info-card setup-card">
+        <div className="section-title-row">
+          <h2>로마·피렌체 템플릿</h2>
+          <Pill tone="ok">6/19 - 6/28</Pill>
+        </div>
+        <p>
+          로마 5일 + 6/24 이동 + 피렌체 4일. 날짜별 추천 코스, 예약 고정 일정, 플랜 B까지 채워진 상태로
+          시작한 뒤 자유롭게 수정할 수 있어요.
+        </p>
+        <button className="solid-button" onClick={applyTemplate}>
+          <Sparkles size={17} />
+          템플릿 적용하고 시작
+        </button>
+      </article>
+
+      <article className="info-card setup-card">
+        <div className="section-title-row">
+          <h2>빈 일정으로 시작</h2>
+          <Pill>커스텀</Pill>
+        </div>
+        <p>날짜와 도시만 정하고, 코스는 지도·장소 탭에서 직접 채워나가는 방식이에요.</p>
+        <DayAddForm addDay={addDay} />
+      </article>
+    </section>
   );
 }
 
@@ -1262,13 +1546,14 @@ function RecommendedRouteCard({
   addToRoute,
   setSelectedPlaceId,
 }: {
-  day: (typeof tripDays)[number];
+  day: TripDay;
   recommendedRoute: RouteItem[];
   currentRoute: RouteItem[];
   applyRecommendedRoute: (mode?: "replace" | "append") => void;
   addToRoute: (id: string) => void;
   setSelectedPlaceId: (id: string) => void;
 }) {
+  if (recommendedRoute.length === 0) return null;
   const currentIds = new Set(currentRoute.map((item) => item.placeId));
   const suggestedPlaces = recommendedRoute.map((item) => getPlace(item.placeId));
   const stats = routeStats(recommendedRoute);
@@ -1334,6 +1619,7 @@ function RecommendedRouteCard({
 }
 
 function MapScreen({
+  days,
   selectedDayId,
   setDay,
   selectedDay,
@@ -1359,9 +1645,10 @@ function MapScreen({
   clearRoute,
   applyRecommendedRoute,
 }: {
+  days: TripDay[];
   selectedDayId: string;
   setDay: (id: string) => void;
-  selectedDay: (typeof tripDays)[number];
+  selectedDay: TripDay;
   selectedRoute: RouteItem[];
   routePositions: [number, number][];
   mapFitPoints: [number, number][];
@@ -1419,7 +1706,7 @@ function MapScreen({
         </div>
       </div>
 
-      <DayStrip selectedDayId={selectedDayId} setDay={setDay} />
+      <DayStrip days={days} selectedDayId={selectedDayId} setDay={setDay} />
 
       <div className="filter-row" aria-label="지도 필터">
         {(Object.keys(filterLabels) as FilterKey[]).map((key) => (
@@ -1534,7 +1821,7 @@ function MapScreen({
 
           <RecommendedRouteCard
             day={selectedDay}
-            recommendedRoute={recommendedRoutes[selectedDay.id] ?? []}
+            recommendedRoute={templateRoutes[selectedDay.id] ?? []}
             currentRoute={selectedRoute}
             applyRecommendedRoute={applyRecommendedRoute}
             addToRoute={addToRoute}
@@ -1629,6 +1916,7 @@ function MapScreen({
 }
 
 function TodayScreen({
+  days,
   selectedDay,
   selectedRoute,
   done,
@@ -1641,7 +1929,8 @@ function TodayScreen({
   checkedItems,
   setCheckedItems,
 }: {
-  selectedDay: (typeof tripDays)[number];
+  days: TripDay[];
+  selectedDay: TripDay;
   selectedRoute: RouteItem[];
   done: Record<string, boolean>;
   stats: ReturnType<typeof routeStats>;
@@ -1670,7 +1959,7 @@ function TodayScreen({
           지도
         </button>
       </div>
-      <DayStrip selectedDayId={selectedDay.id} setDay={setDay} />
+      <DayStrip days={days} selectedDayId={selectedDay.id} setDay={setDay} />
 
       <div className="today-grid">
         <section className="hero-panel">
@@ -1812,49 +2101,88 @@ function TodayScreen({
 }
 
 function PlanScreen({
+  days,
   selectedDayId,
   setDay,
   routes,
   setActiveTab,
+  addDay,
+  removeDay,
+  applyTemplate,
   applyRecommendedRoute,
 }: {
+  days: TripDay[];
   selectedDayId: string;
   setDay: (id: string) => void;
   routes: Record<string, RouteItem[]>;
   setActiveTab: (tab: TabKey) => void;
+  addDay: (input: { date: string; city: City; title?: string }) => void;
+  removeDay: (dayId: string) => void;
+  applyTemplate: () => void;
   applyRecommendedRoute: (dayId: string) => void;
 }) {
+  const first = days[0];
+  const last = days[days.length - 1];
+  const rangeLabel = first && last ? `${first.label} - ${last.label}` : "일정 없음";
+
   return (
     <section className="screen">
       <div className="screen-header">
         <div>
           <p className="eyebrow">Plan</p>
-          <h1>6/19-6/28 마스터 일정</h1>
-          <p className="subline">로마 5박 흐름, 6/24 이동, 피렌체 4박 흐름</p>
+          <h1>내 일정</h1>
+          <p className="subline">
+            {rangeLabel} · {days.length}일 · 날짜 추가/삭제와 코스 편집 모두 가능
+          </p>
         </div>
+        <button className="ghost-button compact" onClick={applyTemplate}>
+          <RefreshCw size={16} />
+          템플릿 전체 적용
+        </button>
       </div>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>날짜 추가</h2>
+          <Pill>커스텀</Pill>
+        </div>
+        <DayAddForm addDay={addDay} />
+      </section>
+
       <div className="plan-list">
-        {tripDays.map((day) => {
+        {days.map((day) => {
           const route = routes[day.id] ?? [];
-          const recommended = recommendedRoutes[day.id] ?? [];
+          const recommended = templateRoutes[day.id] ?? [];
           const mustCount = route.filter((item) => getPlace(item.placeId).priority === 1).length;
           return (
             <article key={day.id} className={selectedDayId === day.id ? "day-card active" : "day-card"}>
-              <button
-                className="day-card-head"
-                onClick={() => {
-                  setDay(day.id);
-                  setActiveTab("map");
-                }}
-              >
-                <span>
-                  <small>
-                    {day.label} · {cityLabels[day.city]}
-                  </small>
-                  <strong>{day.title}</strong>
-                </span>
-                <ChevronRight size={20} />
-              </button>
+              <div className="day-card-head-row">
+                <button
+                  className="day-card-head"
+                  onClick={() => {
+                    setDay(day.id);
+                    setActiveTab("map");
+                  }}
+                >
+                  <span>
+                    <small>
+                      {day.label} · {cityLabels[day.city]}
+                    </small>
+                    <strong>{day.title}</strong>
+                  </span>
+                  <ChevronRight size={20} />
+                </button>
+                <IconButton
+                  label="날짜 삭제"
+                  onClick={() => {
+                    if (window.confirm(`${day.label} 일정을 삭제할까요? 이 날의 코스도 함께 지워집니다.`)) {
+                      removeDay(day.id);
+                    }
+                  }}
+                >
+                  <X size={16} />
+                </IconButton>
+              </div>
               <p>{day.areaFocus}</p>
               <div className="plan-section-label">내 코스</div>
               <div className="mini-route">
@@ -1870,24 +2198,30 @@ function PlanScreen({
                   Maps <ExternalLink size={13} />
                 </a>
               </div>
-              <div className="plan-section-label">추천안</div>
-              <div className="mini-route recommendation-mini">
-                {recommended.slice(0, 8).map((item) => (
-                  <span key={item.uid}>{getPlace(item.placeId).koName}</span>
-                ))}
-              </div>
+              {recommended.length > 0 && (
+                <>
+                  <div className="plan-section-label">추천안</div>
+                  <div className="mini-route recommendation-mini">
+                    {recommended.slice(0, 8).map((item) => (
+                      <span key={item.uid}>{getPlace(item.placeId).koName}</span>
+                    ))}
+                  </div>
+                </>
+              )}
               <div className="card-actions plan-actions">
-                <button
-                  className="ghost-button compact"
-                  onClick={() => {
-                    applyRecommendedRoute(day.id);
-                    setDay(day.id);
-                    setActiveTab("map");
-                  }}
-                >
-                  <RefreshCw size={16} />
-                  추천안 적용
-                </button>
+                {recommended.length > 0 && (
+                  <button
+                    className="ghost-button compact"
+                    onClick={() => {
+                      applyRecommendedRoute(day.id);
+                      setDay(day.id);
+                      setActiveTab("map");
+                    }}
+                  >
+                    <RefreshCw size={16} />
+                    추천안 적용
+                  </button>
+                )}
                 <button
                   className="solid-button compact"
                   onClick={() => {
@@ -1922,6 +2256,9 @@ function RankingScreen({
   addToRoute,
   setSelectedPlaceId,
   setActiveTab,
+  customPlaces,
+  addCustomPlace,
+  removeCustomPlace,
 }: {
   rankingCategory: PlaceCategory | "all";
   setRankingCategory: (category: PlaceCategory | "all") => void;
@@ -1932,7 +2269,12 @@ function RankingScreen({
   addToRoute: (id: string) => void;
   setSelectedPlaceId: (id: string) => void;
   setActiveTab: (tab: TabKey) => void;
+  customPlaces: Place[];
+  addCustomPlace: (input: { name: string; city: City; category: PlaceCategory; lat: number; lng: number; memo?: string }) => void;
+  removeCustomPlace: (placeId: string) => void;
 }) {
+  const [showCustomForm, setShowCustomForm] = useState(false);
+  const customIds = new Set(customPlaces.map((place) => place.id));
   const categories: (PlaceCategory | "all")[] = ["all", "attraction", "food", "cafe", "view", "shopping"];
   const filtered = places
     .filter((place) => place.priority <= 2)
@@ -1962,7 +2304,27 @@ function RankingScreen({
           <h1>장소 DB</h1>
           <p className="subline">Must와 Good 위주 · 검색, 권역, 카테고리로 탐색</p>
         </div>
+        <button className="ghost-button compact" onClick={() => setShowCustomForm((current) => !current)}>
+          <Plus size={16} />
+          내 장소
+        </button>
       </div>
+
+      {showCustomForm && (
+        <section className="content-band">
+          <div className="section-title-row">
+            <h2>내 장소 추가</h2>
+            <Pill>커스텀</Pill>
+          </div>
+          <p className="settings-hint">Google Maps에서 장소를 길게 눌러 좌표를 복사해 붙여넣으세요.</p>
+          <CustomPlaceForm
+            onAdd={(input) => {
+              addCustomPlace(input);
+              setShowCustomForm(false);
+            }}
+          />
+        </section>
+      )}
 
       <div className="rank-controls">
         <div className="segmented">
@@ -2067,6 +2429,16 @@ function RankingScreen({
                   <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
                     Maps <ExternalLink size={14} />
                   </a>
+                  {customIds.has(place.id) && (
+                    <button
+                      className="ghost-button compact"
+                      onClick={() => {
+                        if (window.confirm(`'${place.koName}'을(를) 삭제할까요?`)) removeCustomPlace(place.id);
+                      }}
+                    >
+                      <X size={16} /> 삭제
+                    </button>
+                  )}
                 </div>
               </div>
             </article>
@@ -2079,6 +2451,57 @@ function RankingScreen({
 
 function ClockIcon() {
   return <span className="clock-dot" aria-hidden="true" />;
+}
+
+function CustomPlaceForm({
+  onAdd,
+}: {
+  onAdd: (input: { name: string; city: City; category: PlaceCategory; lat: number; lng: number; memo?: string }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [city, setCity] = useState<City>("rome");
+  const [category, setCategory] = useState<PlaceCategory>("attraction");
+  const [coords, setCoords] = useState("");
+  const [memo, setMemo] = useState("");
+  const match = coords.match(/(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/);
+  const formCategories: PlaceCategory[] = ["attraction", "food", "cafe", "shopping", "view", "rest"];
+
+  return (
+    <div className="custom-place-form">
+      <input value={name} onChange={(event) => setName(event.target.value)} placeholder="장소 이름" />
+      <div className="custom-place-row">
+        <select value={city} onChange={(event) => setCity(event.target.value as City)} aria-label="도시">
+          {(Object.keys(cityLabels) as City[]).map((key) => (
+            <option key={key} value={key}>
+              {cityLabels[key]}
+            </option>
+          ))}
+        </select>
+        <select value={category} onChange={(event) => setCategory(event.target.value as PlaceCategory)} aria-label="카테고리">
+          {formCategories.map((key) => (
+            <option key={key} value={key}>
+              {categoryLabels[key]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <input value={coords} onChange={(event) => setCoords(event.target.value)} placeholder="위도, 경도 붙여넣기 (예: 41.9001, 12.4905)" />
+      <input value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="메모 (선택) — 왜 가는지, 예약 번호 등" />
+      <button
+        className="solid-button compact"
+        disabled={!name.trim() || !match}
+        onClick={() => {
+          if (!name.trim() || !match) return;
+          onAdd({ name: name.trim(), city, category, lat: parseFloat(match[1]), lng: parseFloat(match[2]), memo });
+          setName("");
+          setCoords("");
+          setMemo("");
+        }}
+      >
+        <Plus size={15} /> 장소 추가
+      </button>
+    </div>
+  );
 }
 
 function HotelSettingForm({
