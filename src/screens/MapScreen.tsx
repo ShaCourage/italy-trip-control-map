@@ -33,6 +33,7 @@ import {
   categoryColors,
   categoryLabels,
   escapeHtml,
+  filterGroups,
   filterLabels,
   formatDistanceKm,
   getEnhancement,
@@ -41,11 +42,10 @@ import {
   getShortLabel,
   makeDirectionsUrl,
   makeGooglePlaceUrl,
-  modeLabels,
   places,
   placesById,
 } from "../appCore";
-import type { FilterKey, ModeKey, Place, PlaceCategory, RouteItem, RouteStats, TripDay } from "../appCore";
+import type { FilterKey, Place, PlaceCategory, RouteItem, RouteStats, TripDay } from "../appCore";
 import { categoryShortLabels } from "../placeEnhancements";
 import { DayStrip, IconButton, Pill, PlaceInsightCard, PlaceNameBlock, PlaceThumb, RecommendedRouteCard } from "../components/place";
 
@@ -205,8 +205,6 @@ export default function MapScreen({
   setSelectedPlaceId,
   filter,
   setFilter,
-  mode,
-  setMode,
   recommendations,
   stats,
   done,
@@ -233,8 +231,6 @@ export default function MapScreen({
   setSelectedPlaceId: (id: string) => void;
   filter: FilterKey;
   setFilter: (filter: FilterKey) => void;
-  mode: ModeKey;
-  setMode: (mode: ModeKey) => void;
   recommendations: { place: Place; score: number; distance: number }[];
   stats: RouteStats;
   done: Record<string, boolean>;
@@ -272,13 +268,6 @@ export default function MapScreen({
           </p>
         </div>
         <div className="header-actions">
-          <select value={mode} onChange={(event) => setMode(event.target.value as ModeKey)} aria-label="루트 모드">
-            {Object.entries(modeLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
           <IconButton label="코스 비우기" onClick={clearRoute}>
             <X size={18} />
           </IconButton>
@@ -287,11 +276,21 @@ export default function MapScreen({
 
       <DayStrip days={days} selectedDayId={selectedDayId} setDay={setDay} />
 
-      <div className="filter-row" aria-label="지도 필터">
-        {(Object.keys(filterLabels) as FilterKey[]).map((key) => (
-          <button key={key} className={filter === key ? "filter-chip active" : "filter-chip"} onClick={() => setFilter(key)}>
-            {filterLabels[key]}
-          </button>
+      {/* 칩 하나가 지도 핀 + '지금 추천'을 동시에 결정. 그룹 사이에 구분선. */}
+      <div className="filter-row" aria-label="장소 필터">
+        {filterGroups.map((group, groupIndex) => (
+          <div key={group.label} className="filter-group" role="group" aria-label={group.label}>
+            {groupIndex > 0 && <span className="filter-divider" aria-hidden="true" />}
+            {group.keys.map((key) => (
+              <button
+                key={key}
+                className={filter === key ? "filter-chip active" : "filter-chip"}
+                onClick={() => setFilter(key)}
+              >
+                {filterLabels[key]}
+              </button>
+            ))}
+          </div>
         ))}
       </div>
 
@@ -474,7 +473,7 @@ export default function MapScreen({
           <div className="recommend-box">
             <div className="section-title-row">
               <h2>지금 추천</h2>
-              <Pill tone="ok">{modeLabels[mode]}</Pill>
+              <Pill tone="ok">{filterLabels[filter]}</Pill>
             </div>
             {recommendations.map(({ place, distance }) => {
               const google = getPlaceScore(place);

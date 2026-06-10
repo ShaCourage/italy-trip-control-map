@@ -25,14 +25,14 @@ import { foodOrderGuides, koreanTravelGuides } from "../extraData";
 import {
   categoryLabels,
   cityLabels,
+  filterLabels,
   getEnhancement,
   getPlaceScore,
   makeGooglePlaceUrl,
-  modeLabels,
   places,
   sources,
 } from "../appCore";
-import type { AppSettings, ModeKey, TabKey, TripDay } from "../appCore";
+import type { AppSettings, FilterKey, TabKey, TripDay } from "../appCore";
 import { IconButton, Pill } from "../components/place";
 import { docTypeLabels, normalizeDocUrl } from "../lib/docs";
 import type { DocType, TripDoc, TripDocInput } from "../lib/docs";
@@ -529,12 +529,12 @@ export default function MoreScreen({
                 </select>
               </label>
               <label>
-                기본 모드
+                기본 필터
                 <select
-                  value={settings.defaultMode ?? "default"}
-                  onChange={(event) => updateSettings({ defaultMode: event.target.value as ModeKey })}
+                  value={settings.defaultFilter ?? "all"}
+                  onChange={(event) => updateSettings({ defaultFilter: event.target.value as FilterKey })}
                 >
-                  {Object.entries(modeLabels).map(([key, label]) => (
+                  {Object.entries(filterLabels).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label}
                     </option>

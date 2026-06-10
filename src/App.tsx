@@ -39,7 +39,7 @@ import {
   templateRoutesById,
   unregisterPlace,
 } from "./appCore";
-import type { AppSettings, FilterKey, ModeKey, RouteItem, TabKey } from "./appCore";
+import type { AppSettings, FilterKey, RouteItem, TabKey } from "./appCore";
 import { Pill } from "./components/place";
 import { DayAddForm } from "./components/schedule";
 import { normalizeTripDocs } from "./lib/docs";
@@ -183,8 +183,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>(initialSettings.startTab ?? "today");
   const [days, setDays] = useState<TripDay[]>(initialDays);
   const [selectedDayId, setSelectedDayId] = useState(initialDayId);
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [mode, setMode] = useState<ModeKey>(initialSettings.defaultMode ?? "default");
+  const [filter, setFilter] = useState<FilterKey>(initialSettings.defaultFilter ?? "all");
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [customPlaces, setCustomPlaces] = useState<Place[]>(initialCustomPlaces);
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
@@ -280,13 +279,20 @@ export default function App() {
     const routeIds = new Set(selectedRoute.map((item) => item.placeId));
     return places.filter((place) => {
       if (!relevantCities.has(place.city)) return false;
+      // 탐색 그룹
       if (filter === "today") return routeIds.size ? routeIds.has(place.id) : place.priority === 1;
       if (filter === "all") return place.priority <= 2;
       if (filter === "must") return place.priority === 1;
+      // 취향·상황 그룹 (모드에서 통합) — 공통적으로 핵심 핀(priority<=2)만
       if (filter === "photo") return place.photo === 3;
-      if (filter === "safety") return place.safety !== "보통";
       if (filter === "reservation") return place.reservation === "필수" || place.reservation === "권장";
       if (filter === "korean") return Boolean(place.koreanTips?.length) || place.tags.includes("한국인선호");
+      if (filter === "budget") return place.priority <= 2 && (place.price === "무료" || place.price === "낮음");
+      if (filter === "low")
+        return place.priority <= 2 && place.durationMin <= 60 && place.category !== "stay" && place.category !== "station";
+      if (filter === "rain") return place.priority <= 2 && (place.tags.includes("실내") || place.category === "cafe");
+      if (filter === "night") return place.priority <= 2 && place.safety === "보통";
+      // 종류 그룹: 카테고리 일치
       return place.category === filter;
     });
   }, [filter, relevantCities, selectedRoute]);
@@ -303,24 +309,31 @@ export default function App() {
       .map((place) => {
         const distance = anchor ? haversineKm(anchor, place) : 2;
         let score = place.rank + place.girlsTripFit * 4 + Math.max(0, 18 - distance * 5);
-        if (mode === "low") score += place.durationMin <= 45 ? 22 : place.durationMin <= 75 ? 10 : -18;
-        if (mode === "low" && ["cafe", "rest", "food"].includes(place.category)) score += 10;
-        if (mode === "photo") score += place.photo * 10 + (place.category === "view" ? 12 : 0);
-        if (mode === "rain") score += place.tags.includes("실내") ? 26 : place.category === "cafe" ? 12 : place.category === "view" ? -18 : 0;
-        if (mode === "night") score += place.safety === "보통" ? 18 : place.safety === "밤주의" ? -28 : -8;
-        if (mode === "shopping") score += place.category === "shopping" ? 32 : place.category === "cafe" ? 8 : 0;
-        if (mode === "food") score += place.category === "food" ? 32 : place.category === "cafe" ? 12 : 0;
-        if (mode === "korean") {
+        // 선택된 필터 칩이 추천 가중치도 결정 — 지도에 보이는 핀과 추천이 같은 기준
+        if (filter === "low") {
+          score += place.durationMin <= 45 ? 22 : place.durationMin <= 75 ? 10 : -18;
+          if (["cafe", "rest", "food"].includes(place.category)) score += 10;
+        }
+        if (filter === "photo") score += place.photo * 10 + (place.category === "view" ? 12 : 0);
+        if (filter === "rain") score += place.tags.includes("실내") ? 26 : place.category === "cafe" ? 12 : place.category === "view" ? -18 : 0;
+        if (filter === "night") score += place.safety === "보통" ? 18 : place.safety === "밤주의" ? -28 : -8;
+        if (filter === "shopping") score += place.category === "shopping" ? 32 : place.category === "cafe" ? 8 : 0;
+        if (filter === "food") score += place.category === "food" ? 32 : place.category === "cafe" ? 12 : 0;
+        if (filter === "cafe") score += place.category === "cafe" ? 30 : 0;
+        if (filter === "view") score += place.category === "view" ? 30 : 0;
+        if (filter === "attraction") score += place.category === "attraction" ? 24 : 0;
+        if (filter === "must") score += place.priority === 1 ? 20 : 0;
+        if (filter === "korean") {
           score += place.tags.includes("한국인선호") ? 30 : 0;
           score += place.koreanTips?.length ? 12 : 0;
           score += ["food", "cafe", "shopping", "view"].includes(place.category) ? 8 : 0;
           score += place.safety === "밤주의" ? -10 : 0;
         }
-        if (mode === "reservation") {
+        if (filter === "reservation") {
           score += place.reservation === "필수" ? 24 : place.reservation === "권장" ? 12 : -8;
           score += place.priority === 1 ? 8 : 0;
         }
-        if (mode === "budget") {
+        if (filter === "budget") {
           score += place.price === "무료" ? 24 : place.price === "낮음" ? 20 : place.price === "중간" ? 6 : -14;
           score += place.category === "food" || place.category === "cafe" ? 8 : 0;
         }
@@ -328,7 +341,7 @@ export default function App() {
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
-  }, [mode, nextPlace, relevantCities, selectedPlace, selectedRoute, selectedRoutePlaces]);
+  }, [filter, nextPlace, relevantCities, selectedPlace, selectedRoute, selectedRoutePlaces]);
 
   function setDay(dayId: string) {
     setSelectedDayId(dayId);
@@ -651,8 +664,6 @@ export default function App() {
               setSelectedPlaceId={setSelectedPlaceId}
               filter={filter}
               setFilter={setFilter}
-              mode={mode}
-              setMode={setMode}
               recommendations={recommendations}
               stats={stats}
               done={done}

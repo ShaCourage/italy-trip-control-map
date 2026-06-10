@@ -171,6 +171,21 @@ input:focus {
   display: none;
 }
 
+/* 통합 필터: 그룹(탐색·종류·취향상황)을 한 줄에 두되 구분선으로 나눔 */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 4px 10px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
 .day-chip,
 .filter-chip,
 .more-tabs button,

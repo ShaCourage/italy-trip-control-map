@@ -20,6 +20,8 @@ export type { RouteItem } from "./lib/routes";
 
 export type TabKey = "map" | "today" | "plan" | "ranking" | "more";
 
+// 필터 칩 하나가 지도 핀 표시 + '지금 추천' 가중치를 동시에 결정한다(모드 드롭다운 통합).
+// 그룹: 탐색(today/all/must) · 종류(attraction~photo) · 취향·상황(korean~night)
 export type FilterKey =
   | "today"
   | "all"
@@ -30,27 +32,18 @@ export type FilterKey =
   | "view"
   | "shopping"
   | "photo"
-  | "safety"
-  | "reservation"
-  | "korean";
-
-export type ModeKey =
-  | "default"
-  | "low"
-  | "photo"
-  | "rain"
-  | "night"
-  | "shopping"
-  | "food"
   | "korean"
   | "reservation"
-  | "budget";
+  | "budget"
+  | "low"
+  | "rain"
+  | "night";
 
 export type AppSettings = {
   romeHotel?: { lat: number; lng: number; label?: string };
   florenceHotel?: { lat: number; lng: number; label?: string };
   startTab?: TabKey;
-  defaultMode?: ModeKey;
+  defaultFilter?: FilterKey;
   appliedTemplateId?: string;
 };
 
@@ -70,19 +63,6 @@ export type PlaceScore = {
   isVerified: boolean;
 };
 
-export const modeLabels: Record<ModeKey, string> = {
-  default: "기본",
-  low: "체력 아낌",
-  photo: "사진",
-  rain: "비",
-  night: "밤 안전",
-  shopping: "쇼핑",
-  food: "맛집",
-  korean: "K-취향",
-  reservation: "예약 우선",
-  budget: "가성비",
-};
-
 export const filterLabels: Record<FilterKey, string> = {
   today: "오늘 루트",
   all: "전체",
@@ -93,10 +73,21 @@ export const filterLabels: Record<FilterKey, string> = {
   view: "전망",
   shopping: "쇼핑",
   photo: "사진",
-  safety: "주의",
-  reservation: "예약",
   korean: "한국인",
+  reservation: "예약",
+  budget: "가성비",
+  low: "체력 아낌",
+  rain: "비·실내",
+  night: "밤 안전",
 };
+
+// 칩을 누르면 지도 핀 필터(어떤 핀을 보일지)와 추천 가중치(어떤 곳을 위로)를 함께 묶기 위한 그룹.
+// 시각적으로 한 줄 안에서 구분선만 넣는다.
+export const filterGroups: { label: string; keys: FilterKey[] }[] = [
+  { label: "탐색", keys: ["all", "today", "must"] },
+  { label: "종류", keys: ["attraction", "food", "cafe", "view", "shopping", "photo"] },
+  { label: "취향·상황", keys: ["korean", "reservation", "budget", "low", "rain", "night"] },
+];
 
 export const categoryColors: Record<PlaceCategory, string> = {
   stay: "#2b241c",
