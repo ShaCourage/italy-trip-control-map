@@ -233,11 +233,11 @@ export default function App() {
     return result.slice(0, 6);
   }, [days, routes, done, selectedDay.date, selectedRoute]);
 
-	  useEffect(() => {
-	    if (!toast) return;
-	    const timer = window.setTimeout(() => setToast(""), 1700);
-	    return () => window.clearTimeout(timer);
-	  }, [toast]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 1700);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     saveSlice("routes", routes);

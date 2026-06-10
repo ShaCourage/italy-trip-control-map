@@ -192,6 +192,7 @@ export default function RankingScreen({
   const [detailId, setDetailId] = useState<string>();
   const customIds = new Set(customPlaces.map((place) => place.id));
   const categories: (PlaceCategory | "all")[] = ["all", "attraction", "food", "cafe", "view", "shopping"];
+  const normalizedQuery = query.trim();
   const sorters: Record<RankSortKey, (a: Place, b: Place) => number> = {
     popular: (a, b) => b.rank - a.rank,
     rating: (a, b) =>
@@ -206,10 +207,23 @@ export default function RankingScreen({
     .filter((place) =>
       `${place.koName} ${place.name} ${place.area} ${place.tags.join(" ")} ${(place.menuHints ?? []).join(" ")} ${(getEnhancement(place).highlights ?? []).join(" ")}`
         .toLowerCase()
-        .includes(query.toLowerCase())
+        .includes(normalizedQuery.toLowerCase())
     )
     .sort(sorters[sortKey]);
   const detailPlace = detailId ? placesById.get(detailId) : undefined;
+  const hasActiveFilters = rankingCategory !== "all" || rankingCity !== "all" || quickFilter !== "all" || normalizedQuery.length > 0;
+  const activeFilterLabels = [
+    rankingCity !== "all" ? cityLabels[rankingCity] : undefined,
+    rankingCategory !== "all" ? categoryLabels[rankingCategory] : undefined,
+    quickFilter !== "all" ? quickFilterLabels[quickFilter] : undefined,
+    normalizedQuery ? `"${normalizedQuery}"` : undefined,
+  ].filter(Boolean);
+  const resetFilters = () => {
+    setRankingCity("all");
+    setRankingCategory("all");
+    setQuickFilter("all");
+    setQuery("");
+  };
 
   const clusters = Array.from(
     places
@@ -288,6 +302,16 @@ export default function RankingScreen({
         ))}
       </div>
 
+      {hasActiveFilters && (
+        <div className="active-filter-bar">
+          <span>{activeFilterLabels.join(" · ")}</span>
+          <button className="ghost-button compact" onClick={resetFilters}>
+            <X size={14} />
+            조건 초기화
+          </button>
+        </div>
+      )}
+
       <section className="content-band">
         <div className="section-title-row">
           <h2>권역 묶음</h2>
@@ -322,6 +346,18 @@ export default function RankingScreen({
       </div>
 
       <div className="place-list">
+        {filtered.length === 0 && (
+          <div className="empty-route">
+            <strong>조건에 맞는 장소가 없어요.</strong>
+            <p>검색어를 줄이거나 도시·카테고리·빠른 조건을 초기화해보세요.</p>
+            <div className="empty-actions">
+              <button className="ghost-button compact" onClick={resetFilters}>
+                <X size={14} />
+                조건 초기화
+              </button>
+            </div>
+          </div>
+        )}
         {filtered.map((place, index) => (
           <PlacePhotoCard key={place.id} place={place} rank={index + 1} onOpen={() => setDetailId(place.id)} />
         ))}

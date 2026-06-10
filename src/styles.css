@@ -1158,6 +1158,13 @@ input:focus {
   line-height: 1.45;
 }
 
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .disabled-link,
 .muted-link {
   opacity: 0.45;
@@ -1482,6 +1489,18 @@ input:focus {
   line-height: 1.25;
 }
 
+.choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.choice-actions .ghost-button {
+  min-height: 34px;
+}
+
 .check-list {
   display: grid;
   gap: 8px;
@@ -1766,6 +1785,26 @@ input:focus {
 .quick-filter-row {
   margin-top: -6px;
   margin-bottom: 2px;
+}
+
+.active-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(47, 125, 109, 0.18);
+  border-radius: var(--radius-sm);
+  background: rgba(47, 125, 109, 0.07);
+  color: var(--green-deep);
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+
+.active-filter-bar span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-sm);
+  font-weight: 800;
 }
 
 .info-card {

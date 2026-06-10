@@ -144,6 +144,16 @@ export default function TodayScreen({
             <div className="empty-route">
               <strong>아직 만든 코스가 없어요.</strong>
               <p>추천 코스를 그대로 적용하거나, 지도에서 원하는 장소만 골라 추가하세요.</p>
+              <div className="empty-actions">
+                <button className="solid-button compact" onClick={() => setActiveTab("map")}>
+                  <MapIcon size={15} />
+                  지도에서 고르기
+                </button>
+                <button className="ghost-button compact" onClick={() => setActiveTab("ranking")}>
+                  <Plus size={15} />
+                  장소 둘러보기
+                </button>
+              </div>
             </div>
           )}
           {selectedRoute.map((item, index) => {
@@ -180,7 +190,7 @@ export default function TodayScreen({
           {recommendations.slice(0, 3).map(({ place, distance }) => {
             const google = getPlaceScore(place);
             return (
-              <a className="choice-card" key={place.id} href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+              <article className="choice-card" key={place.id}>
                 <span>
                   {categoryLabels[place.category]} · {google.ratingText}
                 </span>
@@ -188,7 +198,16 @@ export default function TodayScreen({
                 <small>
                   {formatDistanceKm(distance)} · {place.bestTime} · 혼잡 {google.crowdLevel}
                 </small>
-              </a>
+                <div className="choice-actions">
+                  <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
+                    구글지도 <ExternalLink size={13} />
+                  </a>
+                  <button className="ghost-button compact" onClick={() => addToRoute(place.id)}>
+                    <Plus size={14} />
+                    코스 추가
+                  </button>
+                </div>
+              </article>
             );
           })}
         </div>
