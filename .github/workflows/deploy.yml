@@ -1,8 +1,9 @@
 name: Deploy to GitHub Pages
 
-# 현재 비공개 저장소 + 무료 플랜이라 Pages 비활성 (422). 공개 전환 또는 Pro 업그레이드 후
-# 아래 trigger에 `push: { branches: [main] }`를 추가하고 Actions 탭에서 수동 실행 1회.
+# 저장소 공개 전환 후 활성화됨(2026-06-11). main 푸시마다 자동 배포 + 수동 실행 가능.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Pages가 비활성이어도 첫 실행에서 자동 활성화 (REST API 권한 없이)
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
