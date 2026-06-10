@@ -1,7 +1,7 @@
 {
-  "name": "Italy Trip Control Map",
-  "short_name": "Italy Plan",
-  "description": "Rome and Florence trip control map for June 19-28.",
+  "name": "이탈리아 일정 지도",
+  "short_name": "이탈리아 일정",
+  "description": "로마와 피렌체 여행 일정, 장소, 코스를 직접 관리하는 지도.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

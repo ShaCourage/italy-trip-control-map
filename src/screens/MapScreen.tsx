@@ -341,7 +341,7 @@ export default function MapScreen({
                 <small>{selectedPlace.why}</small>
               </div>
               <div>
-                <a href={makeGooglePlaceUrl(selectedPlace)} target="_blank" rel="noreferrer" aria-label={`${selectedPlace.koName} Google Maps`}>
+                <a href={makeGooglePlaceUrl(selectedPlace)} target="_blank" rel="noreferrer" aria-label={`${selectedPlace.koName} 구글지도`}>
                   <Navigation size={16} />
                 </a>
                 <button

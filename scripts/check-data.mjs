@@ -5,6 +5,7 @@ const placeCollections = [
   { file: "src/data.ts", name: "places" },
   { file: "src/extraData.ts", name: "extraPlaces" },
   { file: "src/morePlaces.ts", name: "morePlaces" },
+  { file: "src/sitePlaces.ts", name: "sitePlaces" },
 ];
 const sourceCollections = [
   { file: "src/data.ts", name: "sources" },
