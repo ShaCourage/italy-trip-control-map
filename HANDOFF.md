@@ -1,14 +1,33 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-10 (UI 전면 개편 + 데이터 보강)
+마지막 갱신: 2026-06-10 (템플릿 4종 + 장소 38곳 대량 추가)
 
 ## 현재 상태
 
 - 브랜치: `main`
 - 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`)
-- 검증: `npm run build` 통과, 모바일 뷰포트 전 화면 스크린샷 확인 완료
+- 검증: `npm run build` 통과, `node scripts/check-refs.mjs` 통과, 프리뷰 DOM 검증(적용 플로우·175카드·이미지 70) 완료
 
-## 이번 세션에서 한 일
+## 이번 세션에서 한 일 (템플릿 + 대량 수집)
+
+### 여행 템플릿 4종 (`src/templates.ts`)
+- `classic`(기존 tripDays 재사용) / `foodie` 미식 로드 / `relaxed` 여유 만끽(하루 4곳 이하+한낮 시에스타) / `photo` 인생샷 헌터(골든아워 동선)
+- 날짜 골격(로마 5 + 6/24 이동 + 피렌체 4)과 예약 앵커(콜로세움·바티칸·우피치·아카데미아·두오모·기차)는 4종 공통
+- **진입점 문제 해결**: 일정 탭에 상시 "여행 템플릿" 섹션(미니카드 4개) + 빈 일정 시작 화면도 4카드로 — 기존엔 일정 적용 후 재진입 불가였음
+- `applyTemplate(templateId)`: 기존 코스 있으면 confirm 후 교체, `settings.appliedTemplateId` 저장
+- "추천 코스"(지도 추천안·일정 추천코스)가 적용된 템플릿을 따라감 — `activeTemplateRoutes()` (App.tsx 모듈 레벨)
+
+### 장소 38곳 대량 추가 (`src/morePlaces.ts`, 로마 18 + 피렌체 20)
+- 가격(price)·메뉴(menuHints)·특징·팁·주의사항 전부 포함, App.tsx에서 `basePlaces+extraPlaces+morePlaces` 병합
+- enhancement 38건 추가 (highlights/reviewSignals/bestFor, 주요 명소엔 story) → 커버리지 175곳 전체
+- 위키 사진 7곳 추가 굽기(코페데·산루이지·비토리아·아피아·산마르코·오르산미켈레·산토스피리토) → 실사진 70곳
+- 좌표는 도보 내비 수준 근사값(±100m) — 정밀 이동은 카드의 Maps 링크 전제
+- Google 평점 미확인 상태라 전부 내부 추천점수(rank)로 표시됨 (점수 정책 유지)
+
+### 검증 스크립트
+- `scripts/check-refs.mjs` 신설 — 템플릿 placeId + pairWith 참조 무결성 검사 (F6 빌드 게이트의 토대)
+
+## 직전 세션에서 한 일
 
 ### UI/UX 전면 개편
 - `src/styles.css`에 디자인 토큰 도입: 폰트 7단계(`--fs-2xs`~`--fs-xl`), 웜 팔레트(크림 배경 + 테라코타 강조), 라운드 3단계 — 기존 26종 제각각이던 font-size 전부 토큰으로 치환

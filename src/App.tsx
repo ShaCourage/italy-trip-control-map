@@ -58,6 +58,8 @@ import {
   tripDays as templateDays,
 } from "./data";
 import { extraPlaces, extraSources, foodOrderGuides, koreanTravelGuides } from "./extraData";
+import { morePlaces } from "./morePlaces";
+import { tripTemplates } from "./templates";
 import { categoryShortLabels, placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
 
 type TabKey = "map" | "today" | "plan" | "ranking" | "more";
@@ -67,6 +69,7 @@ type AppSettings = {
   florenceHotel?: { lat: number; lng: number; label?: string };
   startTab?: TabKey;
   defaultMode?: ModeKey;
+  appliedTemplateId?: string;
 };
 
 // 문서함 — 예약 링크/번호 모음. 민감정보 원본(여권 등)은 넣지 않는 전제
@@ -166,7 +169,7 @@ const tabItems = [
 // id 중복 시 나중 항목이 이긴다 — 중복은 React key 충돌로 화면이 꼬이므로 개발 중 경고
 const places = (() => {
   const merged = new Map<string, Place>();
-  for (const place of [...basePlaces, ...extraPlaces]) {
+  for (const place of [...basePlaces, ...extraPlaces, ...morePlaces]) {
     if (merged.has(place.id) && import.meta.env.DEV) {
       console.warn(`[data] 중복 장소 id: ${place.id} — 나중 항목으로 대체됨`);
     }
@@ -177,19 +180,32 @@ const places = (() => {
 const sources = [...baseSources, ...extraSources];
 
 // 로마·피렌체 6/19-28 기본 플랜은 "템플릿"이다.
-// 앱은 빈 일정으로 시작하고, 사용자가 템플릿을 적용하거나 날짜를 직접 만든다.
-const templateRoutes = Object.fromEntries(
-  templateDays.map((day) => [
-    day.id,
-    day.route.map((stop, index) => ({
-      uid: `${day.id}-recommended-${index}-${stop.placeId}`,
-      placeId: stop.placeId,
-      locked: stop.locked,
-      time: stop.time,
-      note: stop.note,
-    })),
-  ])
-) as Record<string, RouteItem[]>;
+// 앱은 빈 일정으로 시작하고, 사용자가 콘셉트 템플릿(4종)을 적용하거나 날짜를 직접 만든다.
+const buildTemplateRoutes = (days: TripDay[]) =>
+  Object.fromEntries(
+    days.map((day) => [
+      day.id,
+      day.route.map((stop, index) => ({
+        uid: `${day.id}-recommended-${index}-${stop.placeId}`,
+        placeId: stop.placeId,
+        locked: stop.locked,
+        time: stop.time,
+        note: stop.note,
+      })),
+    ])
+  ) as Record<string, RouteItem[]>;
+
+const templateRoutesById: Record<string, Record<string, RouteItem[]>> = Object.fromEntries(
+  tripTemplates.map((template) => [template.id, buildTemplateRoutes(template.days)])
+);
+
+// "추천 코스"는 마지막으로 적용한 템플릿을 따른다. 모듈 변수로 추적해도 안전한 이유:
+// 템플릿 적용 시 days/routes 상태가 같이 바뀌어 재렌더가 항상 따라오기 때문.
+let appliedTemplateId: string | undefined;
+function activeTemplateRoutes(): Record<string, RouteItem[]> {
+  const id = appliedTemplateId ?? initialSettings.appliedTemplateId ?? "classic";
+  return templateRoutesById[id] ?? templateRoutesById.classic;
+}
 
 const placesById = new Map(places.map((place) => [place.id, place]));
 
@@ -794,7 +810,7 @@ export default function App() {
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
   const [done, setDone] = useState<Record<string, boolean>>(() => loadStoredRecord("italy-trip-done-v1"));
   const [selectedPlaceId, setSelectedPlaceId] = useState<string>(
-    templateRoutes[initialDayId]?.[1]?.placeId ?? places[0].id
+    activeTemplateRoutes()[initialDayId]?.[1]?.placeId ?? places[0].id
   );
   const [rankingCategory, setRankingCategory] = useState<PlaceCategory | "all">("all");
   const [rankingCity, setRankingCity] = useState<"all" | "rome" | "florence">("all");
@@ -940,18 +956,26 @@ export default function App() {
     if (day?.route[1]) setSelectedPlaceId(day.route[1].placeId);
   }
 
-  // 템플릿: 로마·피렌체 6/19-28 전체 일정 + 추천 코스를 채운다
-  function applyTemplate() {
-    const newDays = templateDays.map((day) => ({ ...day }));
+  // 템플릿: 선택한 콘셉트로 6/19-28 전체 일정 + 추천 코스를 채운다
+  function applyTemplate(templateId: string) {
+    const template = tripTemplates.find((item) => item.id === templateId) ?? tripTemplates[0];
+    const hasExisting = days.some((day) => (routes[day.id] ?? []).length > 0);
+    if (hasExisting && !window.confirm(`현재 일정을 '${template.name}' 템플릿으로 교체할까요? 기존 코스는 사라져요.`)) {
+      return;
+    }
+    appliedTemplateId = template.id;
+    const routesForTemplate = templateRoutesById[template.id] ?? {};
+    const newDays = template.days.map((day) => ({ ...day }));
     setDays(newDays);
     setRoutes(
       Object.fromEntries(
-        newDays.map((day) => [day.id, (templateRoutes[day.id] ?? []).map((item) => ({ ...item }))])
+        newDays.map((day) => [day.id, (routesForTemplate[day.id] ?? []).map((item) => ({ ...item }))])
       )
     );
+    setSettings((current) => ({ ...current, appliedTemplateId: template.id }));
     const todayMatch = newDays.find((day) => day.id === localISODate()) ?? newDays[0];
     setSelectedDayId(todayMatch.id);
-    setToast("로마·피렌체 템플릿 적용됨");
+    setToast(`${template.name} 템플릿 적용됨`);
   }
 
   function addDay(input: { date: string; city: City; title?: string }) {
@@ -1187,7 +1211,7 @@ export default function App() {
       const currentIds = new Set(currentItems.map((item) => item.placeId));
       const recommended = cloneRoute(
         selectedDay.id,
-        (templateRoutes[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
+        (activeTemplateRoutes()[selectedDay.id] ?? []).filter((item) => mode === "replace" || !currentIds.has(item.placeId)),
         mode === "replace" ? "apply" : "append"
       );
       if (mode === "replace") return { ...current, [selectedDay.id]: recommended };
@@ -1270,7 +1294,7 @@ export default function App() {
               const day = days.find((item) => item.id === dayId);
               if (!day) return;
               setSelectedDayId(dayId);
-              setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, templateRoutes[dayId] ?? [], "plan-apply") }));
+              setRoutes((current) => ({ ...current, [dayId]: cloneRoute(dayId, activeTemplateRoutes()[dayId] ?? [], "plan-apply") }));
               setToast("추천 코스 적용됨");
             }}
           />
@@ -1387,7 +1411,7 @@ function SetupScreen({
   applyTemplate,
   addDay,
 }: {
-  applyTemplate: () => void;
+  applyTemplate: (templateId: string) => void;
   addDay: (input: { date: string; city: City; title?: string }) => void;
 }) {
   return (
@@ -1396,24 +1420,34 @@ function SetupScreen({
         <div>
           <p className="eyebrow">Start</p>
           <h1>여행 일정 만들기</h1>
-          <p className="subline">아직 일정이 비어 있어요. 템플릿으로 시작하거나 날짜를 직접 추가하세요.</p>
+          <p className="subline">
+            아직 일정이 비어 있어요. 4가지 콘셉트 중 하나로 시작하거나 날짜를 직접 추가하세요. 로마 5일 +
+            6/24 이동 + 피렌체 4일 골격과 예약 앵커는 공통이에요.
+          </p>
         </div>
       </div>
 
-      <article className="info-card setup-card">
-        <div className="section-title-row">
-          <h2>로마·피렌체 템플릿</h2>
-          <Pill tone="ok">6/19 - 6/28</Pill>
-        </div>
-        <p>
-          로마 5일 + 6/24 이동 + 피렌체 4일. 날짜별 추천 코스, 예약 고정 일정, 플랜 B까지 채워진 상태로
-          시작한 뒤 자유롭게 수정할 수 있어요.
-        </p>
-        <button className="solid-button" onClick={applyTemplate}>
-          <Sparkles size={17} />
-          템플릿 적용하고 시작
-        </button>
-      </article>
+      {tripTemplates.map((template) => (
+        <article key={template.id} className="info-card setup-card template-card">
+          <div className="section-title-row">
+            <h2>{template.name}</h2>
+            <Pill tone={template.id === "classic" ? "ok" : undefined}>6/19 - 6/28</Pill>
+          </div>
+          <p className="template-tagline">{template.tagline}</p>
+          <p>{template.description}</p>
+          <div className="template-chips">
+            {template.highlights.map((item) => (
+              <span key={item} className="template-chip">
+                {item}
+              </span>
+            ))}
+          </div>
+          <button className="solid-button" onClick={() => applyTemplate(template.id)}>
+            <Sparkles size={17} />
+            이 콘셉트로 시작
+          </button>
+        </article>
+      ))}
 
       <article className="info-card setup-card">
         <div className="section-title-row">
@@ -2015,7 +2049,7 @@ function MapScreen({
 
           <RecommendedRouteCard
             day={selectedDay}
-            recommendedRoute={templateRoutes[selectedDay.id] ?? []}
+            recommendedRoute={activeTemplateRoutes()[selectedDay.id] ?? []}
             currentRoute={selectedRoute}
             applyRecommendedRoute={applyRecommendedRoute}
             addToRoute={addToRoute}
@@ -2344,7 +2378,7 @@ function PlanScreen({
   setActiveTab: (tab: TabKey) => void;
   addDay: (input: { date: string; city: City; title?: string }) => void;
   removeDay: (dayId: string) => void;
-  applyTemplate: () => void;
+  applyTemplate: (templateId: string) => void;
   applyRecommendedRoute: (dayId: string) => void;
 }) {
   const first = days[0];
@@ -2361,11 +2395,29 @@ function PlanScreen({
             {rangeLabel} · {days.length}일 · 날짜 추가/삭제와 코스 편집 모두 가능
           </p>
         </div>
-        <button className="ghost-button compact" onClick={applyTemplate}>
-          <RefreshCw size={16} />
-          템플릿 전체 적용
-        </button>
       </div>
+
+      <section className="content-band">
+        <div className="section-title-row">
+          <h2>여행 템플릿</h2>
+          <Pill>4종</Pill>
+        </div>
+        <p className="settings-hint">
+          콘셉트를 고르면 6/19-28 전체 일정과 추천 코스가 다시 채워져요. 적용 후에도 자유롭게 수정할 수 있어요.
+        </p>
+        <div className="template-row">
+          {tripTemplates.map((template) => (
+            <article key={template.id} className="template-mini-card">
+              <strong>{template.name}</strong>
+              <span>{template.tagline}</span>
+              <button className="ghost-button compact" onClick={() => applyTemplate(template.id)}>
+                <Sparkles size={15} />
+                적용
+              </button>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="content-band">
         <div className="section-title-row">
@@ -2378,7 +2430,7 @@ function PlanScreen({
       <div className="plan-list">
         {days.map((day) => {
           const route = routes[day.id] ?? [];
-          const recommended = templateRoutes[day.id] ?? [];
+          const recommended = activeTemplateRoutes()[day.id] ?? [];
           const mustCount = route.filter((item) => getPlace(item.placeId).priority === 1).length;
           return (
             <article key={day.id} className={selectedDayId === day.id ? "day-card active" : "day-card"}>

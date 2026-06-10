@@ -2435,3 +2435,59 @@ input:focus {
   display: grid;
   gap: 8px;
 }
+
+/* ---- 여행 템플릿 카드 (SetupScreen 풀카드 / PlanScreen 미니카드) ---- */
+.template-card .template-tagline {
+  margin: -4px 0 2px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--red);
+}
+
+.template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.template-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.template-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.template-mini-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.template-mini-card strong {
+  font-size: var(--fs-base);
+}
+
+.template-mini-card span {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  min-height: 2.2em;
+}
+
+.template-mini-card .ghost-button {
+  margin-top: auto;
+  justify-content: center;
+}
