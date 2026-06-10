@@ -132,7 +132,9 @@ function PlaceMapMarker({
       </Tooltip>
       <Popup>
         <div className="map-popup">
-          <PlaceNameBlock place={place} compact />
+          <strong>
+            <PlaceNameBlock place={place} compact />
+          </strong>
           <span>
             {categoryLabels[place.category]} · {place.area} · {google.ratingText}
           </span>

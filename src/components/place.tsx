@@ -55,12 +55,9 @@ export function PlaceNameBlock({ place, compact = false }: { place: Place; compa
   const originalName = place.name && !place.name.endsWith("placeholder") ? place.name : place.koName;
   const pronunciation = getPlacePronunciation(place);
   const meaning = place.koName;
+  const label = `${originalName}(${pronunciation}, ${meaning})`;
 
-  return (
-    <span className={compact ? "place-name-line compact" : "place-name-line"}>
-      {originalName}({pronunciation}, {meaning})
-    </span>
-  );
+  return <span className={compact ? "place-name-line compact" : "place-name-line"}>{label}</span>;
 }
 
 export function DayStrip({ days, selectedDayId, setDay }: { days: TripDay[]; selectedDayId: string; setDay: (id: string) => void }) {
@@ -204,7 +201,9 @@ export function PlaceInsightCard({
           <small>
             {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
           </small>
-          <PlaceNameBlock place={place} />
+          <h2>
+            <PlaceNameBlock place={place} />
+          </h2>
         </div>
         <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
       </div>

@@ -2577,26 +2577,14 @@ input:focus {
 .place-name-line {
   display: block;
   min-width: 0;
-  margin-top: 4px;
   overflow-wrap: anywhere;
-  color: var(--ink);
-  font-size: 1.02rem;
-  font-weight: 850;
-  line-height: 1.24;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 .place-name-line.compact {
-  margin-top: 0;
-  font-size: 0.8rem;
-  font-weight: 800;
-  line-height: 1.25;
-}
-
-.place-card-title-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-  align-items: start;
+  margin: 0;
 }
 
 /* C1: 예산 기록 */

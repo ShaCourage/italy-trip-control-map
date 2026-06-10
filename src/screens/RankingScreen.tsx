@@ -111,13 +111,13 @@ function PlacePhotoCard({ place, rank, onOpen }: { place: Place; rank: number; o
         <small>
           {cityLabels[place.city]} · {categoryLabels[place.category]} · {place.area}
         </small>
-        <div className="place-card-title-row">
+        <h3>
           <PlaceNameBlock place={place} compact />
           <span className={score.isVerified ? "score-chip" : "score-chip internal"}>
             <Star size={13} />
             {score.isVerified ? score.rating?.toFixed(1) : `${place.rank}점`}
           </span>
-        </div>
+        </h3>
         <p className="card-desc">{place.why}</p>
         <div className="trait-row">
           {badges.map((badge) => (
