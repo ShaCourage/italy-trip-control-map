@@ -156,7 +156,7 @@ function PlaceMapMarker({
               <Route size={14} /> 교체
             </button>
             <a href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
-              <ExternalLink size={14} /> Maps
+              <ExternalLink size={14} /> 구글지도
             </a>
           </div>
         </div>
@@ -380,7 +380,7 @@ export default function MapScreen({
             <div>
               <Star size={16} />
               <strong>{mustCount}</strong>
-              <span>Must</span>
+              <span>필수</span>
             </div>
             <div>
               <Utensils size={16} />

@@ -11,6 +11,7 @@ import {
   MapPin,
   Pencil,
   Plus,
+  RefreshCw,
   Settings as SettingsIcon,
   Shield,
   Star,
@@ -47,12 +48,29 @@ import type { BudgetCategory, BudgetCurrency, BudgetEntry } from "../lib/budget"
 export type MoreKey = "safety" | "foodGuide" | "phrases" | "checklist" | "docs" | "budget" | "data";
 
 const tabOptions: { key: TabKey; label: string }[] = [
-  { key: "today", label: "오늘" },
+  { key: "today", label: "홈" },
   { key: "map", label: "지도" },
+  { key: "plan", label: "일정" },
   { key: "ranking", label: "장소" },
-  { key: "plan", label: "템플릿" },
   { key: "more", label: "더보기" },
 ];
+
+// 서비스워커·캐시를 비우고 새로고침 — 옛 캐시에 갇힌 기기의 탈출구
+async function hardRefresh() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch {
+    // 실패해도 새로고침은 시도
+  }
+  window.location.reload();
+}
 
 function escapeCsv(value: string | number) {
   return `"${String(value).replaceAll('"', '""')}"`;
@@ -78,8 +96,8 @@ function exportCsv() {
       "Category",
       "Priority",
       "City",
-      "Google Rating (verified)",
-      "Review Count (verified)",
+      "Verified Google Rating",
+      "Verified Review Count",
       "Price Level",
       "Crowd Estimate",
       "Confidence",
@@ -97,7 +115,7 @@ function exportCsv() {
           place.lat,
           place.lng,
           categoryLabels[place.category],
-          place.priority === 1 ? "Must" : "Good",
+          place.priority === 1 ? "필수" : "추천",
           cityLabels[place.city],
           google.rating?.toFixed(1) ?? "",
           google.reviewCountLabel ?? "",
@@ -505,7 +523,7 @@ export default function MoreScreen({
               <Pill tone="warn">루트 기준점</Pill>
             </div>
             <p className="settings-hint">
-              Google Maps에서 숙소를 길게 눌러 나오는 좌표를 복사해 붙여넣으세요. 모든 거리·루트·숙소 복귀가 이
+              구글지도에서 숙소를 길게 눌러 나오는 좌표를 복사해 붙여넣으세요. 모든 거리·루트·숙소 복귀가 이
               좌표 기준으로 다시 계산됩니다.
             </p>
             <HotelSettingForm city="로마" current={settings.romeHotel} onSave={(value) => updateSettings({ romeHotel: value })} />
@@ -546,6 +564,23 @@ export default function MoreScreen({
 
           <section className="content-band export-panel">
             <div className="section-title-row">
+              <h2>앱 업데이트</h2>
+              <Pill tone="warn">문제 해결</Pill>
+            </div>
+            <p className="settings-hint">
+              새 기능이 안 보이거나 화면이 옛날 같으면 누르세요. 캐시를 비우고 최신으로 다시 불러옵니다.
+              (저장된 일정·설정은 유지됩니다)
+            </p>
+            <div className="export-actions">
+              <button className="solid-button" onClick={hardRefresh}>
+                <RefreshCw size={17} />
+                최신으로 새로고침
+              </button>
+            </div>
+          </section>
+
+          <section className="content-band export-panel">
+            <div className="section-title-row">
               <h2>백업</h2>
               <Pill>JSON</Pill>
             </div>
@@ -575,7 +610,7 @@ export default function MoreScreen({
           <section className="content-band export-panel">
             <div className="section-title-row">
               <h2>지도 파일</h2>
-              <Pill>Google My Maps</Pill>
+              <Pill>구글 내 지도</Pill>
             </div>
             <div className="export-actions">
               <button className="solid-button" onClick={exportCsv}>
@@ -596,7 +631,7 @@ export default function MoreScreen({
               <div>
                 <Star size={20} />
                 <strong>{places.filter((place) => place.priority === 1).length}</strong>
-                <span>Must</span>
+                <span>필수</span>
               </div>
               <div>
                 <Train size={20} />

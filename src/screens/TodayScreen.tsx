@@ -98,7 +98,7 @@ export default function TodayScreen({
             <div className="hero-actions">
               <a className="solid-button compact" href={makeGooglePlaceUrl(nextPlace)} target="_blank" rel="noreferrer">
                 <Navigation size={16} />
-                Maps
+                구글지도
               </a>
               <button className="ghost-button compact" onClick={() => setActiveTab("map")}>
                 <Route size={16} />
@@ -127,7 +127,7 @@ export default function TodayScreen({
           <div className="metric">
             <Star size={18} />
             <strong>{stats.must}</strong>
-            <span>Must</span>
+            <span>필수</span>
           </div>
         </section>
       </div>
@@ -136,7 +136,7 @@ export default function TodayScreen({
         <div className="section-title-row">
           <h2>오늘 루트</h2>
           <a className={selectedRoute.length ? "text-link" : "text-link muted-link"} href={makeDirectionsUrl(selectedRoute)} target="_blank" rel="noreferrer">
-            Google Maps <ExternalLink size={14} />
+            구글지도 <ExternalLink size={14} />
           </a>
         </div>
         <div className="timeline">

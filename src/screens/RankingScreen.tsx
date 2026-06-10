@@ -219,7 +219,7 @@ export default function RankingScreen({
             <h2>내 장소 추가</h2>
             <Pill>커스텀</Pill>
           </div>
-          <p className="settings-hint">Google Maps에서 장소를 길게 눌러 좌표를 복사해 붙여넣으세요.</p>
+          <p className="settings-hint">구글지도에서 장소를 길게 눌러 좌표를 복사해 붙여넣으세요.</p>
           <CustomPlaceForm
             onAdd={(input) => {
               addCustomPlace(input);
@@ -273,7 +273,7 @@ export default function RankingScreen({
       </section>
 
       <div className="sort-row">
-        <span>{filtered.length}곳 · {rankSortLabels[sortKey]}</span>
+        <span>{filtered.length}곳 · {rankSortLabels[sortKey]} · 인기점수는 출처 중복과 동선 실용성 기준</span>
         <select value={sortKey} onChange={(event) => setSortKey(event.target.value as RankSortKey)} aria-label="정렬 기준">
           {(Object.keys(rankSortLabels) as RankSortKey[]).map((key) => (
             <option key={key} value={key}>

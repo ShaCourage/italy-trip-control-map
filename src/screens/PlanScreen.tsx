@@ -116,10 +116,10 @@ export default function PlanScreen({
                 ))}
               </div>
               <div className="day-card-footer">
-                <Pill tone={mustCount > 3 ? "must" : "plain"}>Must {mustCount}</Pill>
-                <Pill>{route.length} stops</Pill>
+                <Pill tone={mustCount > 3 ? "must" : "plain"}>필수 {mustCount}</Pill>
+                <Pill>{route.length}곳</Pill>
                 <a className={route.length ? "" : "muted-link"} href={makeDirectionsUrl(route)} target="_blank" rel="noreferrer">
-                  Maps <ExternalLink size={13} />
+                  구글지도 <ExternalLink size={13} />
                 </a>
               </div>
               {recommended.length > 0 && (

@@ -10,6 +10,7 @@ import {
   formatDistanceKm,
   getEnhancement,
   getOfficialSource,
+  getPlaceMeaning,
   getPlace,
   getPlacePronunciation,
   getPlaceScore,
@@ -54,7 +55,7 @@ export function ClockIcon() {
 export function PlaceNameBlock({ place, compact = false }: { place: Place; compact?: boolean }) {
   const originalName = place.name && !place.name.endsWith("placeholder") ? place.name : place.koName;
   const pronunciation = getPlacePronunciation(place);
-  const meaning = place.koName;
+  const meaning = getPlaceMeaning(place);
   const label = `${originalName}(${pronunciation}, ${meaning})`;
 
   return <span className={compact ? "place-name-line compact" : "place-name-line"}>{label}</span>;
@@ -205,7 +206,7 @@ export function PlaceInsightCard({
             <PlaceNameBlock place={place} />
           </h2>
         </div>
-        <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "Must" : "Good"}</Pill>
+        <Pill tone={place.priority === 1 ? "must" : "plain"}>{place.priority === 1 ? "필수" : "추천"}</Pill>
       </div>
 
       <PlaceMediaHero place={place} enhancement={enhancement} />
@@ -226,8 +227,8 @@ export function PlaceInsightCard({
           <strong>{google.rating ? google.rating.toFixed(1) : place.rank}</strong>
           <span>
             {google.isVerified
-              ? `Google 평점 · ${google.reviewCountLabel ?? "리뷰 다수"} · ${google.lastChecked ?? "확인일 미기록"} 확인`
-              : "내부 추천 점수 · Google 평점은 실시간 확인 권장"}
+              ? `구글 평점 · ${google.reviewCountLabel ?? "리뷰 다수"} · ${google.lastChecked ?? "확인일 미기록"} 확인`
+              : "내부 인기 점수 · 구글 평점은 실시간 확인 권장"}
           </span>
         </div>
         <div className="google-tags">
@@ -352,7 +353,7 @@ export function PlaceInsightCard({
           다음 교체
         </button>
         <a className="text-link" href={makeGooglePlaceUrl(place)} target="_blank" rel="noreferrer">
-          Maps <ExternalLink size={14} />
+          구글지도 <ExternalLink size={14} />
         </a>
       </div>
 
@@ -387,7 +388,7 @@ export function RecommendedRouteCard({
         <div>
           <h2>추천 코스</h2>
           <p>
-            {day.areaFocus} · {suggestedPlaces.length} stops · {formatDistanceKm(stats.km)}
+            {day.areaFocus} · {suggestedPlaces.length}곳 · {formatDistanceKm(stats.km)}
           </p>
         </div>
         <Pill tone="ok">선택 적용</Pill>

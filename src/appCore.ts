@@ -11,6 +11,7 @@ import {
 } from "./data";
 import { extraPlaces, extraSources } from "./extraData";
 import { morePlaces } from "./morePlaces";
+import { sitePlaces } from "./sitePlaces";
 import { tripTemplates } from "./templates";
 import { placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
 import type { RouteItem } from "./lib/routes";
@@ -66,7 +67,7 @@ export type PlaceScore = {
 export const filterLabels: Record<FilterKey, string> = {
   today: "오늘 루트",
   all: "전체",
-  must: "Must",
+  must: "필수",
   attraction: "명소",
   food: "맛집",
   cafe: "카페",
@@ -103,7 +104,7 @@ export const categoryColors: Record<PlaceCategory, string> = {
 // id 중복 시 나중 항목이 이긴다 — 중복은 React key 충돌로 화면이 꼬이므로 개발 중 경고
 export const places = (() => {
   const merged = new Map<string, Place>();
-  for (const place of [...basePlaces, ...extraPlaces, ...morePlaces]) {
+  for (const place of [...basePlaces, ...extraPlaces, ...morePlaces, ...sitePlaces]) {
     if (merged.has(place.id) && import.meta.env.DEV) {
       console.warn(`[data] 중복 장소 id: ${place.id} — 나중 항목으로 대체됨`);
     }
@@ -189,13 +190,13 @@ function inferConfidence(place: Place): GoogleConfidence {
   return "취향 탐";
 }
 
-// 평점은 수동으로 확인해 넣은 값만 "Google"로 표기한다.
-// 확인 안 된 곳은 내부 추천 점수(rank)만 보여주고, Google 수치를 지어내지 않는다.
+// 평점은 수동으로 확인해 넣은 값만 "구글"로 표기한다.
+// 확인 안 된 곳은 내부 인기 점수(rank)만 보여주고, 구글 수치를 지어내지 않는다.
 export function getPlaceScore(place: Place, enhancement: PlaceEnhancement = getEnhancement(place)): PlaceScore {
   const google = enhancement.google;
   return {
     rating: google?.rating,
-    ratingText: google ? `Google ${google.rating.toFixed(1)}` : `추천 ${place.rank}`,
+    ratingText: google ? `구글 ${google.rating.toFixed(1)}` : `인기 ${place.rank}`,
     reviewCountLabel: google?.reviewCountLabel,
     lastChecked: google?.lastChecked,
     priceLevel: google?.priceLevel ?? priceLevelByPlacePrice[place.price],
@@ -208,7 +209,7 @@ export function getPlaceScore(place: Place, enhancement: PlaceEnhancement = getE
 // 장소 성격을 한눈에 — 전부 내부 데이터에서 기계적으로 파생 (추측 라벨 아님)
 export function traitBadges(place: Place): string[] {
   const badges: string[] = [];
-  if (place.priority === 1) badges.push("⭐ Must");
+  if (place.priority === 1) badges.push("⭐ 필수");
   if (place.reservation === "필수") badges.push("🎫 예약 필수");
   else if (place.reservation === "권장") badges.push("🎫 예약 권장");
   if (place.photo === 3) badges.push("📸 인생샷");
@@ -320,6 +321,51 @@ const pronunciationOverrides: Record<string, string> = {
 
 export function getPlacePronunciation(place: Place) {
   return getEnhancement(place).pronunciation ?? pronunciationOverrides[place.id] ?? place.koName;
+}
+
+const meaningOverrides: Record<string, string> = {
+  "colosseum-forum": "고대 로마 유적",
+  pantheon: "만신전",
+  "trevi-fountain": "트레비 분수",
+  "spanish-steps": "스페인 계단",
+  "piazza-navona": "나보나 광장",
+  "vatican-museums": "바티칸 박물관",
+  "st-peters-basilica": "성 베드로 대성당",
+  "castel-sant-angelo": "천사의 성",
+  "campo-de-fiori": "꽃의 광장",
+  "bocca-della-verita": "진실의 입",
+  "sant-ignazio": "성 이냐시오 성당",
+  "galleria-sciarra": "시아라 아케이드",
+  "via-margutta": "마르구타 거리",
+  "aventine-keyhole": "아벤티노 열쇠구멍",
+  "duomo-florence": "꽃의 성모 대성당",
+  uffizi: "우피치 미술관",
+  accademia: "아카데미아 미술관",
+  "ponte-vecchio": "오래된 다리",
+  "piazza-signoria": "시뇨리아 광장",
+  "piazzale-michelangelo": "미켈란젤로 광장",
+  "pitti-boboli": "피티 궁전과 보볼리 정원",
+  "santa-croce": "성 십자가 성당",
+  "mercato-centrale": "중앙시장",
+  "officina-profumo": "산타 마리아 노벨라 약국",
+};
+
+function defaultMeaning(place: Place) {
+  if (place.category === "food") return place.menuHints?.[0] ?? "현지 맛집";
+  if (place.category === "cafe") return place.menuHints?.[0] ?? "카페·디저트";
+  if (place.category === "attraction") return place.tags.includes("실내") ? "실내 명소" : "명소";
+  if (place.category === "view") return place.bestTime.includes("해질녘") ? "일몰 전망" : "전망 명소";
+  if (place.category === "shopping") return place.tags.includes("장인") ? "장인 쇼핑" : "쇼핑";
+  if (place.category === "rest") return "휴식";
+  if (place.category === "station") return "이동 거점";
+  return "숙소 기준점";
+}
+
+export function getPlaceMeaning(place: Place) {
+  const pronunciation = getPlacePronunciation(place);
+  if (meaningOverrides[place.id]) return meaningOverrides[place.id];
+  if (place.koName !== pronunciation) return place.koName;
+  return defaultMeaning(place);
 }
 
 export function escapeHtml(value: string) {

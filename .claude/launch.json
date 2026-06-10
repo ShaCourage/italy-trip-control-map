@@ -5,6 +5,7 @@
       "name": "italy-trip",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
+      "autoPort": true,
       "port": 5173
     }
   ]

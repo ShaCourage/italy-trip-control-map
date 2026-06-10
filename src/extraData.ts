@@ -2748,6 +2748,12 @@ export const extraSources: Source[] = [
     note: "2026년 기준 로마 레스토랑 후보 교차 확인.",
   },
   {
+    id: "cntraveler-rome-things",
+    label: "Condé Nast Traveler Rome Things To Do",
+    url: "https://www.cntraveler.com/gallery/best-things-to-do-in-rome",
+    note: "로마 대표 명소와 로컬 추천 동선 교차 확인.",
+  },
+  {
     id: "katie-parla-rome",
     label: "Katie Parla Rome Food Guide",
     url: "https://katieparla.com/where-to-eat-drink-shop-rome/",
@@ -2772,6 +2778,18 @@ export const extraSources: Source[] = [
     note: "피렌체 식당과 간단식 후보 확인.",
   },
   {
+    id: "cntraveler-florence",
+    label: "Condé Nast Traveler Florence Restaurants",
+    url: "https://www.cntraveler.com/gallery/best-restaurants-in-florence",
+    note: "피렌체 레스토랑 후보 교차 확인.",
+  },
+  {
+    id: "cntraveler-florence-things",
+    label: "Condé Nast Traveler Florence Things To Do",
+    url: "https://www.cntraveler.com/galleries/2016-07-01/best-things-to-do-in-florence-italy",
+    note: "피렌체 명소와 투어/미술관 후보 교차 확인.",
+  },
+  {
     id: "infatuation-florence",
     label: "The Infatuation Florence",
     url: "https://www.theinfatuation.com/florence/guides/best-restaurants-florence-italy",
@@ -2788,6 +2806,12 @@ export const extraSources: Source[] = [
     label: "The Curious Appetite Florence",
     url: "https://thecuriousappetite.com/2024/11/21/best-restaurants-in-florence-italy/",
     note: "피렌체 음식 전문 로컬 가이드 교차 확인.",
+  },
+  {
+    id: "livingetc-florence",
+    label: "Livingetc Florence Design Guide",
+    url: "https://www.livingetc.com/features/ippolita-rostagnos-guide-to-florence",
+    note: "피렌체 디자인, 장인 상점, 로컬 음식 후보 교차 확인.",
   },
   {
     id: "korean-embassy-italy",
