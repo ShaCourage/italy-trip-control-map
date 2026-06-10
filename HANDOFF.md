@@ -84,7 +84,7 @@ GitHub Pages 활성화가 **무료 플랜 + 비공개 저장소 조합이라 거
 ## 이어서 할 일
 
 - **A3 배포 마무리** — 위 "사용자 결정 필요" 해결 → deploy.yml push 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 추가 + 비행기 모드로 오프라인 확인
-- **F1 구조 분리(완료)** — `App.tsx` 약 3,200줄 → 약 1,700줄. `appCore.ts`, 공용 장소 UI, `MapScreen`, `RankingScreen` 분리 및 lazy loading 적용. vendor 청크 분리로 500kB 경고 제거
+- **F1 구조 분리(완료)** — `App.tsx` 약 3,200줄 → 약 800줄. `appCore.ts`, 공용 UI, `MapScreen`, `RankingScreen`, `TodayScreen`, `PlanScreen`, `MoreScreen` 분리 및 lazy loading 적용. vendor 청크 분리로 500kB 경고 제거
 - **사진 미해결 6곳** — 위키 문서가 없는 식당들(roscioli, armando-al-pantheon, sant-eustachio, tazza-doro, buca-lapi, forno-campo-de-fiori). 직접 찍은 사진이나 무료 이미지 수동 지정 가능 (`placeEnhancements.ts`의 `imageUrl`)
 - **문서함 UX** — 문서 수정, 타입 필터, URL 검증 (기존 백로그 유지)
 
@@ -101,6 +101,8 @@ npm run dev
 - `src/appCore.ts`: 장소 병합·검증, 템플릿 루트, 점수·거리·URL·사용자 장소 등록 로직 분리
 - `src/components/place.tsx`: 장소 미디어, 상세 카드, 추천 코스, 공용 위젯 분리
 - `src/screens/MapScreen.tsx`, `src/screens/RankingScreen.tsx`: 화면 단위 분리 및 `React.lazy` 적용
+- `src/screens/TodayScreen.tsx`, `src/screens/PlanScreen.tsx`, `src/screens/MoreScreen.tsx`: 나머지 주요 화면도 분리
+- 모바일 템플릿 진입점 강화: 하단 `일정` 메뉴를 `템플릿`으로 변경, 오늘 화면에 `템플릿 변경` 버튼 추가
 - `vite.config.ts`: Rolldown vendor 그룹 분리
-- 빌드 결과: 메인 307.22kB, vendor 352.03kB, MapScreen 9.94kB, RankingScreen 7.13kB
-- 검증: `npm run build`, `node scripts/check-refs.mjs`, 브라우저 템플릿·장소 상세·지도 렌더링, 콘솔 오류 0
+- 빌드 결과: 메인 287.98kB, vendor 352.03kB, 화면 청크 3.81-11.48kB
+- 검증: `npm run build`, `node scripts/check-refs.mjs`, 390px 모바일 템플릿 진입·4카드·More 화면, 콘솔 오류 0

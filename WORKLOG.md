@@ -140,7 +140,7 @@ type TripTemplate = {
 
 ### 다음 세션 시작점
 - 사용자가 공개 전환/플랜 결정 시: deploy.yml 트리거 복원 → Actions 1회 실행 → iPhone 홈 화면 + 오프라인 확인
-- F1은 아래 후속 세션에서 완료. 다음 구조 작업 후보는 Today/Plan/More 화면 추가 분리
+- F1은 아래 후속 세션에서 완료
 
 ---
 
@@ -153,3 +153,14 @@ type TripTemplate = {
 - Rolldown vendor 그룹 분리로 500kB 청크 경고 제거
 - 최종 빌드: main 307.22kB, vendor 352.03kB, MapScreen 9.94kB, RankingScreen 7.13kB
 - 검증: build 통과, placeId/pairWith 217 ids 정상, 브라우저 장소 상세·지도 렌더링, 콘솔 오류 0
+
+---
+
+## 2026-06-10 후속 세션 — 모바일 템플릿 진입점 + F1 마무리
+
+- 사용자 피드백: 모바일에서 템플릿 선택 메뉴를 찾기 어려움
+- 하단 네비 `일정` → `템플릿`, 오늘 화면 상단에 `템플릿 변경` 바로가기 추가
+- Plan 제목을 `일정 · 템플릿`으로 변경해 기능 범위 명확화
+- `TodayScreen`, `PlanScreen`, `MoreScreen`, 공용 `DayAddForm`까지 분리
+- `App.tsx` 약 1,700줄 → 약 800줄, 메인 청크 307.22kB → 287.98kB
+- 390px 모바일에서 두 진입점, 템플릿 4카드, More 6탭 확인. 콘솔 오류 0
