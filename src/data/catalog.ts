@@ -1,4 +1,4 @@
-import type { Place, Source } from "../data";
+import type { Place, Source } from "./schema";
 import { florencePlaces } from "./places/florence";
 import { romePlaces } from "./places/rome";
 import { coreSources, researchSources } from "./sources";

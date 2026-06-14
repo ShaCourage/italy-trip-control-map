@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-14 (F2 장소·출처 데이터 분리 완료)
+마지막 갱신: 2026-06-14 (F2 데이터 모듈 세분화 완료)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -15,9 +15,10 @@
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
 - 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 70곳
-- 데이터 집계 기준: `src/data/catalog.ts`가 `src/data/places/rome.ts`/`florence.ts`와
-  `src/data/sources.ts`를 모으고, `appCore.placeStats`가 화면 표기용
-  전체/목록/도시/카테고리/보강/사진/출처 개수를 제공
+- 데이터 구조: `src/data.ts`는 호환용 re-export facade. 실제 데이터는 `src/data/schema.ts`,
+  `labels.ts`, `days.ts`, `fieldGuides.ts`, `sources.ts`, `places/{rome,florence}.ts`로 분리.
+  `src/data/catalog.ts`가 장소/출처를 모으고, `appCore.placeStats`가 화면 표기용 전체/목록/도시/
+  카테고리/보강/사진/출처 개수를 제공
 - 동작 확인됨: 빈 셋업 → 템플릿 4종 적용, 루트 편집(잠금/숙소 복귀 규칙), 백업(v7)·복원,
   문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 서비스워커 자동 갱신, 콘솔 에러 0
 - UI 표기 원칙: 사용자가 보는 라벨은 한국어 우선. 장소명은 `원문명(발음, 뜻/성격)` 한 줄로 통일,
@@ -50,15 +51,15 @@
 `roscioli`, `armando-al-pantheon`, `sant-eustachio`, `tazza-doro`, `buca-lapi`, `forno-campo-de-fiori`
 → 직접 찍은 사진이나 라이선스 명확한 무료 이미지 URL을 `imageUrl`에 수동 지정. (안 하면 카테고리 그래픽 폴백 유지)
 
-### 2. F2 — 데이터 파일 통합 (완료, 후속은 세분화 리팩터만)
-"기본/추가/대량/사이트"라는 작업 이력 구분을 없애고 장소와 출처를 목적별 파일로 분리했다.
+### 2. F2 — 데이터 파일 통합 (완료)
+"기본/추가/대량/사이트"라는 작업 이력 구분을 없애고 데이터 파일을 목적별로 분리했다.
 
 - 완료: `src/data/places/rome.ts` 131곳 · `src/data/places/florence.ts` 117곳.
   `src/data/catalog.ts`가 이 두 파일을 앱의 단일 장소 진입점으로 제공
 - 완료: `scripts/check-data.mjs`와 `scripts/inventory.mjs`도 도시별 파일을 검사 대상으로 변경
 - 완료: `src/data/sources.ts`에 출처 33개를 `coreSources`/`researchSources`로 분리
-- 현 상태: `src/data.ts`는 타입/라벨/일정/회화/안전/체크리스트, `src/extraData.ts`는 한국인/음식 가이드만 유지
-- 후속 후보: `schema.ts`, `days.ts`, `guides.ts`로 더 세분화할 수 있지만 기능상 필수는 아님
+- 완료: 타입/라벨/일정/회화·안전·체크리스트도 `schema.ts`/`labels.ts`/`days.ts`/`fieldGuides.ts`로 분리
+- 현 상태: `src/data.ts`는 기존 import 호환을 위한 re-export만 유지, `src/extraData.ts`는 한국인/음식 가이드 전용
 - 검증: `npm run build`(검사 통과) + 장소 248개 수 유지
 
 ### 3. 남은 P2 / 비고
@@ -67,6 +68,9 @@
 ---
 
 ## 완료 (2026-06-14, Opus 세션 이어서)
+- **F2 4차: 데이터 facade + 세부 모듈 분리** — `src/data.ts`를 기존 import 호환용 re-export 파일로 줄이고,
+  타입은 `schema.ts`, 라벨은 `labels.ts`, 일정은 `days.ts`, 회화·안전·체크리스트는 `fieldGuides.ts`로 분리.
+  `check-data`의 루트 검사 대상도 `src/data/days.ts`로 변경
 - **F2 3차: 출처 데이터 분리 + Actions Node 24 전환 준비** — `data.ts`/`extraData.ts`에 남아 있던
   출처 33개를 `src/data/sources.ts`의 `coreSources`/`researchSources`로 이동. `catalog.ts`와
   `check-data`도 새 출처 파일 기준으로 변경. GitHub Actions는 Node 24 세대 액션

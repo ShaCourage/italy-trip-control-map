@@ -229,3 +229,13 @@ type TripTemplate = {
 - `extraData.ts`는 한국인 여행 운영 가이드와 음식 주문 가이드 전용 파일로 축소
 - GitHub Actions Node 20 deprecation 경고 대응: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` 추가 +
   `checkout@v6`, `configure-pages@v6`, `setup-node@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5`로 갱신
+
+---
+
+## 2026-06-14 후속 세션 — F2 데이터 모듈 세분화
+
+- `src/data.ts`를 기존 import 호환용 facade로 축소
+- 타입은 `src/data/schema.ts`, 라벨은 `src/data/labels.ts`, 일정은 `src/data/days.ts`로 분리
+- 회화·안전·체크리스트는 `src/data/fieldGuides.ts`로 분리
+- `src/data/places/*`, `src/data/sources.ts`, `src/data/catalog.ts` 내부 타입 import는 `schema.ts` 기준으로 정리
+- `scripts/check-data.mjs`의 루트 검사 대상도 `src/data/days.ts` + `src/templates.ts`로 변경

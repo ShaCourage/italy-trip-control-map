@@ -1,4 +1,4 @@
-import type { Source } from "../data";
+import type { Source } from "./schema";
 
 // Core sources for official, transport, and safety references.
 export const coreSources: Source[] = [

@@ -135,14 +135,14 @@ src/
     usePlaceMedia.ts      # 위키 이미지 (모듈 캐시 포함)
   data/
     catalog.ts            # 장소/출처 데이터 단일 진입점
-    schema.ts             # 타입 전부 (Place, TripDay, …)
-    labels.ts             # cityLabels, categoryLabels, 색상
     places/rome.ts        # 장소: 도시별 분리 (data.ts + extraData.ts 통합)
     places/florence.ts
     sources.ts            # 출처: 공식·교통·안전 + 장소 리서치
-    enhancements.ts       # 확인된 평점/이미지/하이라이트 (lastChecked 필수)
+    schema.ts             # 타입 전부 (Place, TripDay, …)
+    labels.ts             # cityLabels, categoryLabels, 색상
     days.ts               # tripDays
-    phrases.ts / safety.ts / guides.ts / sources.ts / checklist.ts
+    fieldGuides.ts        # phraseGroups, safetyNotes, packingChecklist
+    enhancements.ts       # 확인된 평점/이미지/하이라이트 (lastChecked 필수)
 ```
 
 규칙:
@@ -200,7 +200,7 @@ localStorage 키는 `italy-trip-state-v3` 하나로 통합하고 `storage.ts`가
 | # | 항목 | 이유 | 상태 |
 |---|---|---|---|
 | F1 | App.tsx → §4 구조로 분할 | 2,100줄 단일 파일, 수정 충돌·리뷰 불가 | ✅ 2026-06-10 |
-| F2 | data.ts + extraData.ts 통합 → places/도시별 | "기본/추가" 구분은 작업 이력일 뿐 의미 없음 | ✅ 2026-06-14 — 장소 248곳을 도시별 파일로, 출처 33개를 `src/data/sources.ts`로 분리. `catalog.ts` 진입점 + `placeStats` 개수 표기 |
+| F2 | data.ts + extraData.ts 통합 → places/도시별 | "기본/추가" 구분은 작업 이력일 뿐 의미 없음 | ✅ 2026-06-14 — 장소 248곳, 출처 33개, 타입/라벨/일정/현장 가이드를 `src/data/` 하위 목적별 파일로 분리. `data.ts`는 facade |
 | F3 | 루트 조작 규칙(잠금, 숙소 앞 삽입) 순수 함수화 + 중복 제거 | 같은 로직 3곳 복붙 상태 | ✅ 2026-06-10 — `src/lib/routes.ts`, 자동 규칙 검사 |
 | F4 | localStorage 키 v3 통합 + 마이그레이션 | 키 3개 분산, 백업 기능의 전제 | ✅ 2026-06-10 |
 | F5 | enhancement.google에 lastChecked 추가, UI에 확인일 표시 | 객관성 원칙 P1 | ✅ 2026-06-10 |

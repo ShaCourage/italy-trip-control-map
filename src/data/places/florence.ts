@@ -1,4 +1,4 @@
-import type { Place } from "../../data";
+import type { Place } from "../schema";
 
 export const florencePlaces: Place[] = [
   {

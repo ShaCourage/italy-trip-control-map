@@ -9,7 +9,7 @@ const sourceCollections = [
   { file: "src/data/sources.ts", name: "coreSources" },
   { file: "src/data/sources.ts", name: "researchSources" },
 ];
-const routeFiles = ["src/data.ts", "src/templates.ts"];
+const routeFiles = ["src/data/days.ts", "src/templates.ts"];
 const enhancementFile = "src/placeEnhancements.ts";
 const templateFile = "src/templates.ts";
 
