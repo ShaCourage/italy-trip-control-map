@@ -203,7 +203,7 @@ type TripTemplate = {
 ## 2026-06-14 후속 세션 — F2 카탈로그 통합 1차 + 장소 개수 표기
 
 - `src/data/catalog.ts` 추가: `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`를 런타임에서 한 진입점으로 모음
-- `appCore.placeStats` 추가: 전체 248곳, 목록 244곳, 로마 131곳, 피렌체 117곳, 보강 175곳, 실사진 70곳, 출처 33개를 같은 기준으로 계산
+- `appCore.placeStats` 추가: 전체 248곳, 목록 244곳, 로마 131곳, 피렌체 117곳, 보강 175곳, 실사진 72곳, 출처 33개를 같은 기준으로 계산
 - 장소 화면에 전체/도시/카테고리 개수와 필터 결과 `현재/목록` 표기를 추가
 - 도구 화면 지도 파일 카드에 전체 장소, 목록 표시, 중요 핀, 보강 정보, 실사진, 출처 개수를 표시
 - `scripts/check-data.mjs`가 데이터 검증 후 목록/도시/카테고리 요약을 함께 출력하도록 확장
@@ -239,3 +239,11 @@ type TripTemplate = {
 - 회화·안전·체크리스트는 `src/data/fieldGuides.ts`로 분리
 - `src/data/places/*`, `src/data/sources.ts`, `src/data/catalog.ts` 내부 타입 import는 `schema.ts` 기준으로 정리
 - `scripts/check-data.mjs`의 루트 검사 대상도 `src/data/days.ts` + `src/templates.ts`로 변경
+
+---
+
+## 2026-06-14 후속 세션 — 장소 사진 보강 + 인벤토리 집계 보정
+
+- 자동 수집이 실패하던 `roscioli`, `tazza-doro`, `buca-lapi`에 Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정
+- 현재 검증된 실사진 집계는 72곳. 남은 정확 이미지 미해결은 `armando-al-pantheon`, `sant-eustachio`, `forno-campo-de-fiori`
+- `scripts/inventory.mjs`가 enhancement 객체 전체를 기준으로 `wikiTitle`/`imageUrl`을 세도록 보정해, 사진 URL이 앞에 추가돼도 wikiTitle 집계가 흔들리지 않게 함

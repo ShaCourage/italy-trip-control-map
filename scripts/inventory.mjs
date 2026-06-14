@@ -18,16 +18,18 @@ for (const block of blocks) {
 }
 
 const enhSrc = readFileSync("src/placeEnhancements.ts", "utf8").replace(/\r\n/g, "\n");
-const enhIds = new Set([...enhSrc.matchAll(/^  "?([\w'-]+)"?: \{/gm)].map((m) => m[1]));
-const wikiIds = new Set(
-  [...enhSrc.matchAll(/^  "?([\w'-]+)"?: \{[\s\S]{0,260}?wikiTitle/gm)].map((m) => m[1])
-);
+const enhancementEntries = [...enhSrc.matchAll(/^  ("?)([\w'-]+)\1: \{([\s\S]*?)^  \},/gm)];
+const enhIds = new Set(enhancementEntries.map((m) => m[2]));
+const wikiIds = new Set(enhancementEntries.filter((m) => /wikiTitle:/.test(m[3])).map((m) => m[2]));
+const imageIds = new Set(enhancementEntries.filter((m) => /imageUrl:/.test(m[3])).map((m) => m[2]));
 
 console.log("total places:", places.length);
 const real = places.filter((p) => p.category !== "stay" && p.category !== "station");
 console.log("listable (no stay/station):", real.length);
-console.log("with enhancement:", real.filter((p) => enhIds.has(p.id)).length);
-console.log("with wikiTitle:", real.filter((p) => wikiIds.has(p.id)).length);
+console.log("with enhancement:", places.filter((p) => enhIds.has(p.id)).length);
+console.log("with wikiTitle:", places.filter((p) => wikiIds.has(p.id)).length);
+console.log("with image:", places.filter((p) => imageIds.has(p.id)).length);
+console.log("with image (listable):", real.filter((p) => imageIds.has(p.id)).length);
 console.log("\n--- no enhancement, by rank desc ---");
 for (const p of real.filter((p) => !enhIds.has(p.id)).sort((a, b) => b.rank - a.rank)) {
   console.log(`${String(p.rank).padStart(3)} ${p.city?.padEnd(8)} ${p.category?.padEnd(10)} ${p.id}  ${p.koName}`);

@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-14 (F2 데이터 모듈 세분화 완료)
+마지막 갱신: 2026-06-14 (장소 사진 보강 3곳 추가)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -14,7 +14,7 @@
 - 작업 트리 깨끗, `origin/main`과 동기화됨
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
-- 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 70곳
+- 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 72곳
 - 데이터 구조: `src/data.ts`는 호환용 re-export facade. 실제 데이터는 `src/data/schema.ts`,
   `labels.ts`, `days.ts`, `fieldGuides.ts`, `sources.ts`, `places/{rome,florence}.ts`로 분리.
   `src/data/catalog.ts`가 장소/출처를 모으고, `appCore.placeStats`가 화면 표기용 전체/목록/도시/
@@ -46,10 +46,12 @@
 
 ## 다음 할 일 (우선순위)
 
-### 1. 사진 미해결 6곳 (`src/placeEnhancements.ts`의 `imageUrl`)
-위키 문서가 없어 자동 굽기가 안 되는 식당들:
-`roscioli`, `armando-al-pantheon`, `sant-eustachio`, `tazza-doro`, `buca-lapi`, `forno-campo-de-fiori`
-→ 직접 찍은 사진이나 라이선스 명확한 무료 이미지 URL을 `imageUrl`에 수동 지정. (안 하면 카테고리 그래픽 폴백 유지)
+### 1. 사진 미해결 3곳 (`src/placeEnhancements.ts`의 `imageUrl`)
+자동 수집은 실패했고, Wikimedia Commons에서 라이선스가 명확한 사진 3곳은 수동 지정 완료:
+`roscioli`, `tazza-doro`, `buca-lapi`
+
+남은 곳: `armando-al-pantheon`, `sant-eustachio`, `forno-campo-de-fiori`
+→ 정확한 매장 사진이나 라이선스 명확한 무료 이미지 URL을 찾으면 `imageUrl`에 수동 지정. (안 하면 카테고리 그래픽 폴백 유지)
 
 ### 2. F2 — 데이터 파일 통합 (완료)
 "기본/추가/대량/사이트"라는 작업 이력 구분을 없애고 데이터 파일을 목적별로 분리했다.
@@ -68,6 +70,9 @@
 ---
 
 ## 완료 (2026-06-14, Opus 세션 이어서)
+- **사진 보강 3곳 추가** — 자동 수집이 안 되던 `roscioli`, `tazza-doro`, `buca-lapi`에
+  Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정. 현재 검증된 실사진 집계는 72곳.
+  `scripts/inventory.mjs`도 enhancement 객체 전체를 기준으로 `wikiTitle`/`imageUrl`을 세도록 보정
 - **F2 4차: 데이터 facade + 세부 모듈 분리** — `src/data.ts`를 기존 import 호환용 re-export 파일로 줄이고,
   타입은 `schema.ts`, 라벨은 `labels.ts`, 일정은 `days.ts`, 회화·안전·체크리스트는 `fieldGuides.ts`로 분리.
   `check-data`의 루트 검사 대상도 `src/data/days.ts`로 변경
@@ -120,7 +125,7 @@
 **콘텐츠/UX (W2~W3)**
 - 여행 템플릿 4종(`templates.ts`): classic/foodie/relaxed/photo. 일정 탭 상시 노출 +
   모바일 진입점(하단 `템플릿`, 오늘 화면 `템플릿 변경`). `applyTemplate(id)` + `appliedTemplateId` 저장
-- 장소 대량 수집: `morePlaces.ts` 38곳(로마 18 + 피렌체 20), 가격·메뉴·팁 포함 → 커버리지 175곳, 실사진 70곳
+- 장소 대량 수집: `morePlaces.ts` 38곳(로마 18 + 피렌체 20), 가격·메뉴·팁 포함 → 커버리지 175곳, 실사진 72곳
 - UI 개편: `styles.css` 디자인 토큰(폰트 7단계, 웜 팔레트), Pretendard, 마커 이원화(`ZoomWatcher`), 탭 순서 재구성
 - 장소 탭: `RankingScreen` 사진형 카드 + 정렬(인기/평점/소요시간) + 바텀시트 상세
 - **A1** 설정(숙소 좌표·시작 탭·기본 모드) · **A2** JSON 백업·복원 · **A4** 문서함(유형 5·필터·수정·URL 검증)

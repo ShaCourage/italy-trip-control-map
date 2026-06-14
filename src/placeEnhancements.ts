@@ -565,6 +565,9 @@ export const placeEnhancements: Record<string, PlaceEnhancement> = {
     bestFor: ["로마 전통 파스타", "기념 식사", "중심부"],
   },
   roscioli: {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Forno_Roscoli%27s_Sign.jpg/330px-Forno_Roscoli%27s_Sign.jpg",
+    imageSourceUrl: "https://commons.wikimedia.org/wiki/File:Forno_Roscoli%27s_Sign.jpg",
+    imageCredit: "Ph8l / CC BY-SA 3.0",
     shortLabel: "로숄리",
     wikiTitle: "Roscioli",
     story:
@@ -799,6 +802,9 @@ export const placeEnhancements: Record<string, PlaceEnhancement> = {
     bestFor: ["간단 끼니", "야식", "걷는 날"],
   },
   "tazza-doro": {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/ff/La_Casa_del_Caffe_Tazza_D%60oro_%E9%87%91%E6%9D%AF%E5%92%96%E5%95%A1%E9%A4%A8_-_panoramio.jpg/330px-La_Casa_del_Caffe_Tazza_D%60oro_%E9%87%91%E6%9D%AF%E5%92%96%E5%95%A1%E9%A4%A8_-_panoramio.jpg",
+    imageSourceUrl: "https://commons.wikimedia.org/wiki/File:La_Casa_del_Caffe_Tazza_D%60oro_%E9%87%91%E6%9D%AF%E5%92%96%E5%95%A1%E9%A4%A8_-_panoramio.jpg",
+    imageCredit: "lienyuan lee / CC BY 3.0",
     shortLabel: "타차도로",
     wikiTitle: "La Casa del Caffè Tazza d'Oro",
     highlights: ["판테온 앞 로스터리", "그라니타 디 카페", "원두 쇼핑"],
@@ -943,6 +949,9 @@ export const placeEnhancements: Record<string, PlaceEnhancement> = {
     bestFor: ["로컬 분위기", "토스카나 수프"],
   },
   "buca-lapi": {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Piazza_degli_antinori_3%2C_palazzo_antinori%2C_su_via_del_trebbio%2C_portale_della_buca_lapi.jpg/330px-Piazza_degli_antinori_3%2C_palazzo_antinori%2C_su_via_del_trebbio%2C_portale_della_buca_lapi.jpg",
+    imageSourceUrl: "https://commons.wikimedia.org/wiki/File:Piazza_degli_antinori_3,_palazzo_antinori,_su_via_del_trebbio,_portale_della_buca_lapi.jpg",
+    imageCredit: "Francesco Bini / CC BY-SA 4.0",
     shortLabel: "부카라피",
     wikiTitle: "Buca Lapi",
     story: "1880년 와인 셀러에서 시작한 피렌체 최고참 레스토랑. 천장의 빈티지 여행 포스터 아래에서 티본을 써는 클래식 분위기로, 달오스테보다 '격식파' 선택지다.",
