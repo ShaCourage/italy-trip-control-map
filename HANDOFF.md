@@ -69,8 +69,8 @@
 ## 완료 (2026-06-14, Opus 세션 이어서)
 - **F2 3차: 출처 데이터 분리 + Actions Node 24 전환 준비** — `data.ts`/`extraData.ts`에 남아 있던
   출처 33개를 `src/data/sources.ts`의 `coreSources`/`researchSources`로 이동. `catalog.ts`와
-  `check-data`도 새 출처 파일 기준으로 변경. GitHub Actions의 Node 20 deprecation 경고는
-  `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`로 선제 대응
+  `check-data`도 새 출처 파일 기준으로 변경. GitHub Actions는 Node 24 세대 액션
+  (`checkout@v6`, `setup-node@v6`, Pages v5/v6)으로 갱신
 - **F2 2차: 장소 도시별 물리 분리** — `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`에 흩어져 있던
   장소 248곳을 `src/data/places/rome.ts` 131곳, `src/data/places/florence.ts` 117곳으로 분리.
   삭제된 분산 장소 파일 대신 `catalog.ts`가 도시별 파일을 읽고, 데이터 검사/인벤토리도 새 경로를 기준으로 동작

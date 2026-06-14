@@ -227,4 +227,5 @@ type TripTemplate = {
 - `coreSources`(공식·교통·안전)와 `researchSources`(장소 리서치)로 나누고 `catalog.ts`가 통합 진입점 역할 유지
 - `scripts/check-data.mjs`의 출처 검사 대상도 `src/data/sources.ts`로 변경
 - `extraData.ts`는 한국인 여행 운영 가이드와 음식 주문 가이드 전용 파일로 축소
-- GitHub Actions Node 20 deprecation 경고 대응: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` 추가
+- GitHub Actions Node 20 deprecation 경고 대응: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` 추가 +
+  `checkout@v6`, `configure-pages@v6`, `setup-node@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5`로 갱신
