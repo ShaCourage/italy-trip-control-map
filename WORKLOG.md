@@ -247,3 +247,11 @@ type TripTemplate = {
 - 자동 수집이 실패하던 `roscioli`, `tazza-doro`, `buca-lapi`에 Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정
 - 현재 검증된 실사진 집계는 72곳. 남은 정확 이미지 미해결은 `armando-al-pantheon`, `sant-eustachio`, `forno-campo-de-fiori`
 - `scripts/inventory.mjs`가 enhancement 객체 전체를 기준으로 `wikiTitle`/`imageUrl`을 세도록 보정해, 사진 URL이 앞에 추가돼도 wikiTitle 집계가 흔들리지 않게 함
+
+---
+
+## 2026-06-14 후속 세션 — 장소 커버리지 집계 확장
+
+- `appCore.placeStats`에 미보강, 위키 제목, 확인 평점, 사진 없음, 공식 출처 개수를 추가
+- 도구 화면의 지도 파일 카드에 새 커버리지 지표를 표시: 위키 제목 76곳, 확인 평점 23곳, 공식 출처 32곳, 미보강 69곳, 사진 없음 172곳
+- `scripts/check-data.mjs`와 `scripts/inventory.mjs`도 같은 기준의 커버리지 요약을 출력하도록 맞춤

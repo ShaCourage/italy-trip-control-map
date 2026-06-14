@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-14 (장소 사진 보강 3곳 추가)
+마지막 갱신: 2026-06-14 (장소 커버리지 집계 확장)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -15,6 +15,7 @@
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
 - 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 72곳
+  · 위키 제목 76곳 · 확인 평점 23곳 · 공식 출처 32곳 · 미보강 69곳 · 사진 없음 172곳
 - 데이터 구조: `src/data.ts`는 호환용 re-export facade. 실제 데이터는 `src/data/schema.ts`,
   `labels.ts`, `days.ts`, `fieldGuides.ts`, `sources.ts`, `places/{rome,florence}.ts`로 분리.
   `src/data/catalog.ts`가 장소/출처를 모으고, `appCore.placeStats`가 화면 표기용 전체/목록/도시/
@@ -73,6 +74,8 @@
 - **사진 보강 3곳 추가** — 자동 수집이 안 되던 `roscioli`, `tazza-doro`, `buca-lapi`에
   Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정. 현재 검증된 실사진 집계는 72곳.
   `scripts/inventory.mjs`도 enhancement 객체 전체를 기준으로 `wikiTitle`/`imageUrl`을 세도록 보정
+- **장소 커버리지 집계 확장** — `appCore.placeStats`, 도구 화면, `check:data`, `inventory`가
+  위키 제목 76곳, 확인 평점 23곳, 공식 출처 32곳, 미보강 69곳, 사진 없음 172곳을 같은 기준으로 표시
 - **F2 4차: 데이터 facade + 세부 모듈 분리** — `src/data.ts`를 기존 import 호환용 re-export 파일로 줄이고,
   타입은 `schema.ts`, 라벨은 `labels.ts`, 일정은 `days.ts`, 회화·안전·체크리스트는 `fieldGuides.ts`로 분리.
   `check-data`의 루트 검사 대상도 `src/data/days.ts`로 변경

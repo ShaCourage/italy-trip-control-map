@@ -248,6 +248,7 @@ for (const file of routeFiles) {
 
 const enhancementCollection = getCollection(enhancementFile, "placeEnhancements", "object");
 const enhancementIds = new Set();
+const enhancementCoverage = new Map();
 if (enhancementCollection) {
   for (const property of enhancementCollection.properties) {
     if (!ts.isPropertyAssignment(property)) {
@@ -266,6 +267,7 @@ if (enhancementCollection) {
 
     const imageUrl = getString(value, "imageUrl");
     const imageSourceUrl = getString(value, "imageSourceUrl");
+    const wikiTitle = getString(value, "wikiTitle");
     if (imageUrl && !imageSourceUrl) report(enhancementFile, property, `${id} imageSourceUrl 없음`);
     if (imageUrl && !isHttpUrl(imageUrl)) report(enhancementFile, property, `${id} imageUrl 오류: ${imageUrl}`);
     if (imageSourceUrl && !isHttpUrl(imageSourceUrl)) {
@@ -273,6 +275,11 @@ if (enhancementCollection) {
     }
 
     const google = getObject(value, "google");
+    enhancementCoverage.set(id, {
+      hasImage: Boolean(imageUrl),
+      hasWikiTitle: Boolean(wikiTitle),
+      hasGoogle: Boolean(google),
+    });
     if (google) {
       const rating = getNumber(google, "rating");
       const lastChecked = getString(google, "lastChecked");
@@ -314,6 +321,20 @@ const placeCounts = [...placesById.values()].reduce(
   },
   { listable: 0, byCity: {}, byCategory: {} }
 );
+const listablePlaces = [...placesById.values()].filter((entry) => entry.category !== "stay" && entry.category !== "station");
+const officialSourceIds = new Set(
+  [...sourcesById.keys()].filter((sourceId) => sourceId.endsWith("-official") || sourceId === "vatican-museums")
+);
+const coverageCounts = {
+  withoutEnhancement: listablePlaces.filter((entry) => !enhancementIds.has(entry.id)).length,
+  withWikiTitle: [...placesById.values()].filter((entry) => enhancementCoverage.get(entry.id)?.hasWikiTitle).length,
+  withGoogle: [...placesById.values()].filter((entry) => enhancementCoverage.get(entry.id)?.hasGoogle).length,
+  withImage: [...placesById.values()].filter((entry) => enhancementCoverage.get(entry.id)?.hasImage).length,
+  withoutImage: listablePlaces.filter((entry) => !enhancementCoverage.get(entry.id)?.hasImage).length,
+  withOfficialSource: [...placesById.values()].filter((entry) =>
+    entry.sourceIds?.some((sourceId) => officialSourceIds.has(sourceId))
+  ).length,
+};
 const categorySummary = Object.entries(placeCounts.byCategory)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([category, count]) => `${category} ${count}`)
@@ -324,5 +345,8 @@ console.log(
 );
 console.log(
   `     listable ${placeCounts.listable}; rome ${placeCounts.byCity.rome ?? 0}, florence ${placeCounts.byCity.florence ?? 0}`
+);
+console.log(
+  `     coverage: wikiTitle ${coverageCounts.withWikiTitle}, google ${coverageCounts.withGoogle}, image ${coverageCounts.withImage}, official ${coverageCounts.withOfficialSource}, no-enhancement ${coverageCounts.withoutEnhancement}, no-image ${coverageCounts.withoutImage}`
 );
 console.log(`     categories: ${categorySummary}`);

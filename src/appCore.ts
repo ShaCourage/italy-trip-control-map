@@ -110,21 +110,35 @@ export const sources = rawSources;
 
 const cityKeys = Object.keys(cityLabels) as City[];
 const categoryKeys = Object.keys(categoryLabels) as PlaceCategory[];
+const officialSourceIds = new Set(
+  sources.filter((source) => source.id.endsWith("-official") || source.id === "vatican-museums").map((source) => source.id)
+);
 
 function countBy<T extends string>(keys: readonly T[], predicate: (key: T) => number): Record<T, number> {
   return Object.fromEntries(keys.map((key) => [key, predicate(key)])) as Record<T, number>;
 }
 
+function hasOfficialSource(place: Place) {
+  return place.sourceIds.some((id) => officialSourceIds.has(id));
+}
+
 export const placeStats = (() => {
   const listable = places.filter((place) => place.category !== "stay" && place.category !== "station");
+  const hasEnhancement = (place: Place) => Boolean(placeEnhancements[place.id]);
+  const hasImage = (place: Place) => Boolean(placeEnhancements[place.id]?.imageUrl);
   return {
     total: places.length,
     listable: listable.length,
     priorityPins: places.filter((place) => place.priority <= 2).length,
     must: places.filter((place) => place.priority === 1).length,
     sources: sources.length,
-    withEnhancement: places.filter((place) => Boolean(placeEnhancements[place.id])).length,
-    withImage: places.filter((place) => Boolean(placeEnhancements[place.id]?.imageUrl)).length,
+    withEnhancement: places.filter(hasEnhancement).length,
+    withoutEnhancement: listable.filter((place) => !hasEnhancement(place)).length,
+    withWikiTitle: places.filter((place) => Boolean(placeEnhancements[place.id]?.wikiTitle)).length,
+    withGoogle: places.filter((place) => Boolean(placeEnhancements[place.id]?.google)).length,
+    withImage: places.filter(hasImage).length,
+    withoutImage: listable.filter((place) => !hasImage(place)).length,
+    withOfficialSource: places.filter(hasOfficialSource).length,
     byCity: countBy(cityKeys, (city) => places.filter((place) => place.city === city).length),
     listableByCity: countBy(cityKeys, (city) => listable.filter((place) => place.city === city).length),
     byCategory: countBy(categoryKeys, (category) => places.filter((place) => place.category === category).length),
@@ -422,7 +436,7 @@ export function makeGooglePlaceUrl(place: Place) {
 // B4: 추정 영업시간 대신, 출처로 이미 검증된 "공식 기관 페이지"를 고정 노출.
 // restaurant-official(일반 구글맵)은 공식 채널이 아니므로 제외.
 const officialSourceById = new Map(
-  sources.filter((source) => source.id.endsWith("-official") || source.id === "vatican-museums").map((source) => [source.id, source])
+  sources.filter((source) => officialSourceIds.has(source.id)).map((source) => [source.id, source])
 );
 
 export function getOfficialSource(place: Place): { label: string; url: string } | undefined {

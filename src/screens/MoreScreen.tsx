@@ -665,9 +665,34 @@ export default function MoreScreen({
                 <span>보강 정보</span>
               </div>
               <div>
+                <Pencil size={20} />
+                <strong>{placeStats.withoutEnhancement}</strong>
+                <span>미보강</span>
+              </div>
+              <div>
+                <FileText size={20} />
+                <strong>{placeStats.withWikiTitle}</strong>
+                <span>위키 제목</span>
+              </div>
+              <div>
+                <Star size={20} />
+                <strong>{placeStats.withGoogle}</strong>
+                <span>확인 평점</span>
+              </div>
+              <div>
                 <FileText size={20} />
                 <strong>{placeStats.withImage}</strong>
                 <span>실사진</span>
+              </div>
+              <div>
+                <FileText size={20} />
+                <strong>{placeStats.withoutImage}</strong>
+                <span>사진 없음</span>
+              </div>
+              <div>
+                <Shield size={20} />
+                <strong>{placeStats.withOfficialSource}</strong>
+                <span>공식 출처</span>
               </div>
               <div>
                 <FileText size={20} />

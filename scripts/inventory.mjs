@@ -14,22 +14,30 @@ for (const block of blocks) {
   const category = block.match(/category: "(\w+)"/)?.[1];
   const city = block.match(/city: "(\w+)"/)?.[1];
   const koName = block.match(/koName: "([^"]+)"/)?.[1];
-  if (id) places.push({ id, rank, category, city, koName });
+  const sourceIds = [...(block.match(/sourceIds: \[([\s\S]*?)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  if (id) places.push({ id, rank, category, city, koName, sourceIds });
 }
 
 const enhSrc = readFileSync("src/placeEnhancements.ts", "utf8").replace(/\r\n/g, "\n");
 const enhancementEntries = [...enhSrc.matchAll(/^  ("?)([\w'-]+)\1: \{([\s\S]*?)^  \},/gm)];
 const enhIds = new Set(enhancementEntries.map((m) => m[2]));
 const wikiIds = new Set(enhancementEntries.filter((m) => /wikiTitle:/.test(m[3])).map((m) => m[2]));
+const googleIds = new Set(enhancementEntries.filter((m) => /google:/.test(m[3])).map((m) => m[2]));
 const imageIds = new Set(enhancementEntries.filter((m) => /imageUrl:/.test(m[3])).map((m) => m[2]));
+const hasOfficialSource = (place) =>
+  place.sourceIds.some((sourceId) => sourceId.endsWith("-official") || sourceId === "vatican-museums");
 
 console.log("total places:", places.length);
 const real = places.filter((p) => p.category !== "stay" && p.category !== "station");
 console.log("listable (no stay/station):", real.length);
 console.log("with enhancement:", places.filter((p) => enhIds.has(p.id)).length);
+console.log("without enhancement (listable):", real.filter((p) => !enhIds.has(p.id)).length);
 console.log("with wikiTitle:", places.filter((p) => wikiIds.has(p.id)).length);
+console.log("with google:", places.filter((p) => googleIds.has(p.id)).length);
 console.log("with image:", places.filter((p) => imageIds.has(p.id)).length);
 console.log("with image (listable):", real.filter((p) => imageIds.has(p.id)).length);
+console.log("without image (listable):", real.filter((p) => !imageIds.has(p.id)).length);
+console.log("with official source:", places.filter(hasOfficialSource).length);
 console.log("\n--- no enhancement, by rank desc ---");
 for (const p of real.filter((p) => !enhIds.has(p.id)).sort((a, b) => b.rank - a.rank)) {
   console.log(`${String(p.rank).padStart(3)} ${p.city?.padEnd(8)} ${p.category?.padEnd(10)} ${p.id}  ${p.koName}`);
