@@ -1,8 +1,7 @@
-import { sources as baseSources } from "../data";
 import type { Place, Source } from "../data";
-import { extraSources } from "../extraData";
 import { florencePlaces } from "./places/florence";
 import { romePlaces } from "./places/rome";
+import { coreSources, researchSources } from "./sources";
 
 export type PlaceDataSetId = "rome" | "florence";
 
@@ -11,9 +10,9 @@ export const placeDataSets: { id: PlaceDataSetId; label: string; places: Place[]
   { id: "florence", label: "피렌체", places: florencePlaces },
 ];
 
-export const sourceDataSets: { id: "base" | "extra"; label: string; sources: Source[] }[] = [
-  { id: "base", label: "기본", sources: baseSources },
-  { id: "extra", label: "확장", sources: extraSources },
+export const sourceDataSets: { id: "core" | "research"; label: string; sources: Source[] }[] = [
+  { id: "core", label: "공식·교통·안전", sources: coreSources },
+  { id: "research", label: "장소 리서치", sources: researchSources },
 ];
 
 export const rawPlaces = placeDataSets.flatMap((set) => set.places);

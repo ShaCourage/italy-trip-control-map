@@ -15,6 +15,10 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+env:
+  # GitHub-hosted runners switch JavaScript actions to Node 24 by default from 2026-06-16.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: ubuntu-latest

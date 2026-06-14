@@ -6,8 +6,8 @@ const placeCollections = [
   { file: "src/data/places/florence.ts", name: "florencePlaces" },
 ];
 const sourceCollections = [
-  { file: "src/data.ts", name: "sources" },
-  { file: "src/extraData.ts", name: "extraSources" },
+  { file: "src/data/sources.ts", name: "coreSources" },
+  { file: "src/data/sources.ts", name: "researchSources" },
 ];
 const routeFiles = ["src/data.ts", "src/templates.ts"];
 const enhancementFile = "src/placeEnhancements.ts";

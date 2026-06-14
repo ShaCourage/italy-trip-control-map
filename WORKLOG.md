@@ -218,3 +218,13 @@ type TripTemplate = {
 - `src/data/catalog.ts`는 도시별 장소 파일과 기존 출처 파일을 합치는 단일 진입점으로 유지
 - `scripts/check-data.mjs`, `scripts/inventory.mjs`의 검사 대상도 새 도시별 장소 파일로 변경
 - `morePlaces.ts`, `sitePlaces.ts`는 삭제. `data.ts`는 타입/라벨/일정/기본 출처, `extraData.ts`는 추가 출처만 유지
+
+---
+
+## 2026-06-14 후속 세션 — F2 출처 분리 + 배포 경고 대응
+
+- `data.ts`의 기본 출처와 `extraData.ts`의 추가 출처 33개를 `src/data/sources.ts`로 이동
+- `coreSources`(공식·교통·안전)와 `researchSources`(장소 리서치)로 나누고 `catalog.ts`가 통합 진입점 역할 유지
+- `scripts/check-data.mjs`의 출처 검사 대상도 `src/data/sources.ts`로 변경
+- `extraData.ts`는 한국인 여행 운영 가이드와 음식 주문 가이드 전용 파일로 축소
+- GitHub Actions Node 20 deprecation 경고 대응: `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` 추가
