@@ -208,3 +208,13 @@ type TripTemplate = {
 - 도구 화면 지도 파일 카드에 전체 장소, 목록 표시, 중요 핀, 보강 정보, 실사진, 출처 개수를 표시
 - `scripts/check-data.mjs`가 데이터 검증 후 목록/도시/카테고리 요약을 함께 출력하도록 확장
 - 검증: `npm run build` 통과. 남은 F2는 실제 파일을 `src/data/places/rome.ts`, `src/data/places/florence.ts`로 물리 분리하는 단계
+
+---
+
+## 2026-06-14 후속 세션 — F2 장소 도시별 물리 분리
+
+- 기존 장소 배열 `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`에서 장소 객체 248곳을 추출
+- `src/data/places/rome.ts` 131곳, `src/data/places/florence.ts` 117곳으로 분리
+- `src/data/catalog.ts`는 도시별 장소 파일과 기존 출처 파일을 합치는 단일 진입점으로 유지
+- `scripts/check-data.mjs`, `scripts/inventory.mjs`의 검사 대상도 새 도시별 장소 파일로 변경
+- `morePlaces.ts`, `sitePlaces.ts`는 삭제. `data.ts`는 타입/라벨/일정/기본 출처, `extraData.ts`는 추가 출처만 유지

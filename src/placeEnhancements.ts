@@ -1149,7 +1149,7 @@ export const placeEnhancements: Record<string, PlaceEnhancement> = {
     reviewSignals: ["저녁 줄 김", "다리 위에서 먹는 뷰가 보너스"],
     bestFor: ["젤라또", "강변 산책", "가성비"],
   },
-  /* ===== 2026-06 대량 수집분 (morePlaces.ts) ===== */
+  /* ===== 2026-06 대량 수집분 (도시별 places 파일로 통합됨) ===== */
   "seu-pizza-illuminati": {
     shortLabel: "세우피자",
     highlights: ["50 Top Pizza 상위 단골", "창작 토핑 피자", "트라스테베레 남쪽"],

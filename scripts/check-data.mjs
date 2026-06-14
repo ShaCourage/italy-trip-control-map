@@ -2,10 +2,8 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 
 const placeCollections = [
-  { file: "src/data.ts", name: "places" },
-  { file: "src/extraData.ts", name: "extraPlaces" },
-  { file: "src/morePlaces.ts", name: "morePlaces" },
-  { file: "src/sitePlaces.ts", name: "sitePlaces" },
+  { file: "src/data/places/rome.ts", name: "romePlaces" },
+  { file: "src/data/places/florence.ts", name: "florencePlaces" },
 ];
 const sourceCollections = [
   { file: "src/data.ts", name: "sources" },

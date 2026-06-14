@@ -1,16 +1,14 @@
-import { places as basePlaces, sources as baseSources } from "../data";
+import { sources as baseSources } from "../data";
 import type { Place, Source } from "../data";
-import { extraPlaces, extraSources } from "../extraData";
-import { morePlaces } from "../morePlaces";
-import { sitePlaces } from "../sitePlaces";
+import { extraSources } from "../extraData";
+import { florencePlaces } from "./places/florence";
+import { romePlaces } from "./places/rome";
 
-export type PlaceDataSetId = "base" | "extra" | "more" | "site";
+export type PlaceDataSetId = "rome" | "florence";
 
 export const placeDataSets: { id: PlaceDataSetId; label: string; places: Place[] }[] = [
-  { id: "base", label: "기본", places: basePlaces },
-  { id: "extra", label: "확장", places: extraPlaces },
-  { id: "more", label: "대량 수집", places: morePlaces },
-  { id: "site", label: "사이트 수집", places: sitePlaces },
+  { id: "rome", label: "로마", places: romePlaces },
+  { id: "florence", label: "피렌체", places: florencePlaces },
 ];
 
 export const sourceDataSets: { id: "base" | "extra"; label: string; sources: Source[] }[] = [

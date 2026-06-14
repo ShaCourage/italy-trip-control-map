@@ -1,9 +1,9 @@
 // 데이터 커버리지 점검: 장소 수, enhancement/wikiTitle 보유 현황
 import { readFileSync } from "node:fs";
 
-const placeFiles = ["src/data.ts", "src/extraData.ts", "src/morePlaces.ts", "src/sitePlaces.ts"];
+const placeFiles = ["src/data/places/rome.ts", "src/data/places/florence.ts"];
 const placesSrc = placeFiles.map((file) => readFileSync(file, "utf8")).join("\n").replace(/\r\n/g, "\n");
-const placeArrays = [...placesSrc.matchAll(/export const (?:places|extraPlaces|morePlaces|sitePlaces)[\s\S]*?= \[([\s\S]*?)\n\];/g)].map(
+const placeArrays = [...placesSrc.matchAll(/export const (?:romePlaces|florencePlaces)[\s\S]*?= \[([\s\S]*?)\n\];/g)].map(
   (match) => match[1]
 );
 const blocks = placeArrays.flatMap((src) => src.split(/\n  \{\n/).slice(1));

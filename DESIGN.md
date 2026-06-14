@@ -134,7 +134,7 @@ src/
     usePersistentRecord.ts# localStorage Record<string,boolean>
     usePlaceMedia.ts      # 위키 이미지 (모듈 캐시 포함)
   data/
-    catalog.ts            # 현재 데이터 파일들의 단일 진입점 (F2 1차)
+    catalog.ts            # 장소/출처 데이터 단일 진입점
     schema.ts             # 타입 전부 (Place, TripDay, …)
     labels.ts             # cityLabels, categoryLabels, 색상
     places/rome.ts        # 장소: 도시별 분리 (data.ts + extraData.ts 통합)
@@ -199,7 +199,7 @@ localStorage 키는 `italy-trip-state-v3` 하나로 통합하고 `storage.ts`가
 | # | 항목 | 이유 | 상태 |
 |---|---|---|---|
 | F1 | App.tsx → §4 구조로 분할 | 2,100줄 단일 파일, 수정 충돌·리뷰 불가 | ✅ 2026-06-10 |
-| F2 | data.ts + extraData.ts 통합 → places/도시별 | "기본/추가" 구분은 작업 이력일 뿐 의미 없음 | 부분 완료 2026-06-14 — `src/data/catalog.ts` 진입점 + `placeStats` 개수 표기. 남은 일: 도시별 물리 분리 |
+| F2 | data.ts + extraData.ts 통합 → places/도시별 | "기본/추가" 구분은 작업 이력일 뿐 의미 없음 | ✅ 2026-06-14 — 장소 248곳을 `src/data/places/rome.ts`/`florence.ts`로 분리, `catalog.ts` 진입점 + `placeStats` 개수 표기 |
 | F3 | 루트 조작 규칙(잠금, 숙소 앞 삽입) 순수 함수화 + 중복 제거 | 같은 로직 3곳 복붙 상태 | ✅ 2026-06-10 — `src/lib/routes.ts`, 자동 규칙 검사 |
 | F4 | localStorage 키 v3 통합 + 마이그레이션 | 키 3개 분산, 백업 기능의 전제 | ✅ 2026-06-10 |
 | F5 | enhancement.google에 lastChecked 추가, UI에 확인일 표시 | 객관성 원칙 P1 | ✅ 2026-06-10 |

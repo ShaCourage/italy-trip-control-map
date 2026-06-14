@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-14 (F2 카탈로그 통합 + 장소 개수 표기)
+마지막 갱신: 2026-06-14 (F2 장소 도시별 분리 완료)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -15,7 +15,7 @@
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
 - 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 70곳
-- 장소 집계 기준: `src/data/catalog.ts`가 기존 데이터 파일들을 한곳에서 모으고, `appCore.placeStats`가
+- 장소 집계 기준: `src/data/catalog.ts`가 `src/data/places/rome.ts`/`florence.ts`를 모으고, `appCore.placeStats`가
   화면 표기용 전체/목록/도시/카테고리/보강/사진/출처 개수를 제공
 - 동작 확인됨: 빈 셋업 → 템플릿 4종 적용, 루트 편집(잠금/숙소 복귀 규칙), 백업(v7)·복원,
   문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 서비스워커 자동 갱신, 콘솔 에러 0
@@ -44,20 +44,15 @@
 
 ## 다음 할 일 (우선순위)
 
-### 1. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 1차 완료)
-"기본/추가"라는 현재 구분은 작업 이력일 뿐 의미 없음. 카탈로그 진입점은 통합했고, 물리적 도시별 분리가 남았다.
+### 1. F2 — 데이터 파일 통합 (장소 도시별 분리 완료, 출처 분리만 선택 과제)
+"기본/추가/대량/사이트"라는 작업 이력 구분을 없애고 장소는 도시별 파일로 합쳤다.
 
-- 완료: `src/data/catalog.ts`에서 `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`를 한 번에 모음.
-  `appCore.ts`는 이 카탈로그만 읽고, `placeStats`로 실제 병합 결과의 개수를 계산
-- 현 상태(물리 파일은 아직 분산): `src/data.ts`(`places`+`sources`) ·
-  `src/extraData.ts`(`extraPlaces`+`extraSources`) · `src/morePlaces.ts`(`morePlaces`) ·
-  `src/sitePlaces.ts`(`sitePlaces`, 사이트 확장 수집분)
-- 남은 목표: `src/data/places/rome.ts`, `src/data/places/florence.ts`로 도시별 물리 분리
-  (또는 최소한 단일 `places` 컬렉션으로 병합)
-- **반드시 같이 고칠 것**: `scripts/check-data.mjs`가 파일 경로/컬렉션명을 하드코딩함
-  (`placeFiles`/`sourceFiles`/`routeFiles` 배열, 5~14행). 데이터 파일을 옮기면 이 배열을 갱신해야
-  `npm run check:data`가 통과
-- 검증: `npm run build`(검사 통과) + 장소 248개 수 유지 + 프리뷰 장소 탭/지도 렌더 + 콘솔 0
+- 완료: `src/data/places/rome.ts` 131곳 · `src/data/places/florence.ts` 117곳.
+  `src/data/catalog.ts`가 이 두 파일을 앱의 단일 장소 진입점으로 제공
+- 완료: `scripts/check-data.mjs`와 `scripts/inventory.mjs`도 도시별 파일을 검사 대상으로 변경
+- 현 상태: `src/data.ts`는 타입/라벨/일정/기본 출처, `src/extraData.ts`는 추가 출처만 유지
+- 선택 과제: 출처도 `src/data/sources.ts`로 물리 분리하면 `data.ts`를 일정/스키마 중심으로 더 줄일 수 있음
+- 검증: `npm run build`(검사 통과) + 장소 248개 수 유지
 
 ### 2. 사진 미해결 6곳 (`src/placeEnhancements.ts`의 `imageUrl`)
 위키 문서가 없어 자동 굽기가 안 되는 식당들:
@@ -70,6 +65,9 @@
 ---
 
 ## 완료 (2026-06-14, Opus 세션 이어서)
+- **F2 2차: 장소 도시별 물리 분리** — `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`에 흩어져 있던
+  장소 248곳을 `src/data/places/rome.ts` 131곳, `src/data/places/florence.ts` 117곳으로 분리.
+  삭제된 분산 장소 파일 대신 `catalog.ts`가 도시별 파일을 읽고, 데이터 검사/인벤토리도 새 경로를 기준으로 동작
 - **F2 1차: 데이터 카탈로그 통합 + 개수 표기 정리** — `src/data/catalog.ts`를 추가해 장소/출처 데이터의
   런타임 진입점을 하나로 묶음. 장소 화면은 총 248곳·목록 244곳·도시별/카테고리별 개수를 표시하고,
   도구 화면은 전체/목록/중요 핀/보강/실사진/출처 개수를 같은 집계 기준으로 표시. `check:data`도
