@@ -30,6 +30,7 @@ import {
   getEnhancement,
   getPlaceScore,
   makeGooglePlaceUrl,
+  placeStats,
   places,
   sources,
 } from "../appCore";
@@ -645,18 +646,33 @@ export default function MoreScreen({
             <div className="export-grid">
               <div>
                 <MapPin size={20} />
-                <strong>{places.filter((place) => place.priority <= 2).length}</strong>
-                <span>핀</span>
+                <strong>{placeStats.total}</strong>
+                <span>전체 장소</span>
               </div>
               <div>
                 <Star size={20} />
-                <strong>{places.filter((place) => place.priority === 1).length}</strong>
-                <span>필수</span>
+                <strong>{placeStats.listable}</strong>
+                <span>목록 표시</span>
               </div>
               <div>
                 <Train size={20} />
-                <strong>2</strong>
-                <span>도시</span>
+                <strong>{placeStats.priorityPins}</strong>
+                <span>중요 핀</span>
+              </div>
+              <div>
+                <Star size={20} />
+                <strong>{placeStats.withEnhancement}</strong>
+                <span>보강 정보</span>
+              </div>
+              <div>
+                <FileText size={20} />
+                <strong>{placeStats.withImage}</strong>
+                <span>실사진</span>
+              </div>
+              <div>
+                <FileText size={20} />
+                <strong>{placeStats.sources}</strong>
+                <span>출처</span>
               </div>
             </div>
           </section>
@@ -664,7 +680,7 @@ export default function MoreScreen({
           <section className="content-band">
             <div className="section-title-row">
               <h2>출처</h2>
-              <Pill>{sources.length}</Pill>
+              <Pill>{placeStats.sources}</Pill>
             </div>
             <div className="source-list">
               {sources.map((source) => (

@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-11 (오늘/장소 화면 행동 흐름 개선)
+마지막 갱신: 2026-06-14 (F2 카탈로그 통합 + 장소 개수 표기)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -15,6 +15,8 @@
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `tsc -b` → `vite build`
   (데이터/루트 규칙 오류가 있으면 번들링 전에 실패)
 - 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 70곳
+- 장소 집계 기준: `src/data/catalog.ts`가 기존 데이터 파일들을 한곳에서 모으고, `appCore.placeStats`가
+  화면 표기용 전체/목록/도시/카테고리/보강/사진/출처 개수를 제공
 - 동작 확인됨: 빈 셋업 → 템플릿 4종 적용, 루트 편집(잠금/숙소 복귀 규칙), 백업(v7)·복원,
   문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 서비스워커 자동 갱신, 콘솔 에러 0
 - UI 표기 원칙: 사용자가 보는 라벨은 한국어 우선. 장소명은 `원문명(발음, 뜻/성격)` 한 줄로 통일,
@@ -42,15 +44,16 @@
 
 ## 다음 할 일 (우선순위)
 
-### 1. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 현재 "대기")
-"기본/추가"라는 현재 구분은 작업 이력일 뿐 의미 없음. 도시별로 합친다.
+### 1. F2 — 데이터 파일 통합 (마지막 구조 리팩터, `DESIGN.md` §4/§6, 1차 완료)
+"기본/추가"라는 현재 구분은 작업 이력일 뿐 의미 없음. 카탈로그 진입점은 통합했고, 물리적 도시별 분리가 남았다.
 
-- 현 상태(분산): `src/data.ts`(`places`+`sources`) ·
+- 완료: `src/data/catalog.ts`에서 `data.ts`/`extraData.ts`/`morePlaces.ts`/`sitePlaces.ts`를 한 번에 모음.
+  `appCore.ts`는 이 카탈로그만 읽고, `placeStats`로 실제 병합 결과의 개수를 계산
+- 현 상태(물리 파일은 아직 분산): `src/data.ts`(`places`+`sources`) ·
   `src/extraData.ts`(`extraPlaces`+`extraSources`) · `src/morePlaces.ts`(`morePlaces`) ·
   `src/sitePlaces.ts`(`sitePlaces`, 사이트 확장 수집분)
-- 목표: `src/data/places/rome.ts`, `src/data/places/florence.ts`로 도시별 분리
-  (또는 최소한 단일 `places` 컬렉션으로 병합). `App.tsx`의 `basePlaces+extraPlaces+morePlaces`
-  병합부(`appCore.ts`)도 단순화
+- 남은 목표: `src/data/places/rome.ts`, `src/data/places/florence.ts`로 도시별 물리 분리
+  (또는 최소한 단일 `places` 컬렉션으로 병합)
 - **반드시 같이 고칠 것**: `scripts/check-data.mjs`가 파일 경로/컬렉션명을 하드코딩함
   (`placeFiles`/`sourceFiles`/`routeFiles` 배열, 5~14행). 데이터 파일을 옮기면 이 배열을 갱신해야
   `npm run check:data`가 통과
@@ -66,7 +69,11 @@
 
 ---
 
-## 완료 (2026-06-11, Opus 세션 이어서)
+## 완료 (2026-06-14, Opus 세션 이어서)
+- **F2 1차: 데이터 카탈로그 통합 + 개수 표기 정리** — `src/data/catalog.ts`를 추가해 장소/출처 데이터의
+  런타임 진입점을 하나로 묶음. 장소 화면은 총 248곳·목록 244곳·도시별/카테고리별 개수를 표시하고,
+  도구 화면은 전체/목록/중요 핀/보강/실사진/출처 개수를 같은 집계 기준으로 표시. `check:data`도
+  목록·도시·카테고리 요약을 출력
 - **오늘 화면 행동 흐름 개선** — 코스가 비어 있을 때 지도/장소 탭으로 바로 이동하는 CTA를 추가.
   상황별 선택 카드는 외부 지도로 즉시 빠지지 않게 바꾸고, `구글지도` 열기와 `코스 추가`를 분리해
   248개 장소 중 근처 후보를 오늘 루트에 바로 넣을 수 있게 함

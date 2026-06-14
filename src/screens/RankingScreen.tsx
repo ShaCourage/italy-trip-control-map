@@ -8,6 +8,7 @@ import {
   getEnhancement,
   getPlaceScore,
   getShortLabel,
+  placeStats,
   places,
   placesById,
   traitBadges,
@@ -243,7 +244,10 @@ export default function RankingScreen({
         <div>
           <p className="eyebrow">장소</p>
           <h1>장소 둘러보기</h1>
-          <p className="subline">명소·맛집·카페를 인기순으로 — 카드를 누르면 상세 정보</p>
+          <p className="subline">
+            총 {placeStats.total}곳 · 목록 {placeStats.listable}곳 · 로마 {placeStats.byCity.rome} · 피렌체{" "}
+            {placeStats.byCity.florence}
+          </p>
         </div>
         <button className="ghost-button compact" onClick={() => setShowCustomForm((current) => !current)}>
           <Plus size={16} />
@@ -271,7 +275,7 @@ export default function RankingScreen({
         <div className="segmented">
           {(["all", "rome", "florence"] as const).map((city) => (
             <button key={city} className={rankingCity === city ? "active" : ""} onClick={() => setRankingCity(city)}>
-              {city === "all" ? "전체" : cityLabels[city]}
+              {city === "all" ? `전체 ${placeStats.listable}` : `${cityLabels[city]} ${placeStats.listableByCity[city]}`}
             </button>
           ))}
         </div>
@@ -285,7 +289,7 @@ export default function RankingScreen({
             className={rankingCategory === category ? "filter-chip active" : "filter-chip"}
             onClick={() => setRankingCategory(category)}
           >
-            {category === "all" ? "전체" : categoryLabels[category]}
+            {category === "all" ? `전체 ${placeStats.listable}` : `${categoryLabels[category]} ${placeStats.byCategory[category]}`}
           </button>
         ))}
       </div>
@@ -334,7 +338,7 @@ export default function RankingScreen({
 
       <div className="sort-row">
         <span>
-          {filtered.length}곳 · {rankSortLabels[sortKey]} · {quickFilterLabels[quickFilter]} · 인기점수는 출처 중복과 동선 실용성 기준
+          {filtered.length}/{placeStats.listable}곳 · {rankSortLabels[sortKey]} · {quickFilterLabels[quickFilter]} · 인기점수는 출처 중복과 동선 실용성 기준
         </span>
         <select value={sortKey} onChange={(event) => setSortKey(event.target.value as RankSortKey)} aria-label="정렬 기준">
           {(Object.keys(rankSortLabels) as RankSortKey[]).map((key) => (

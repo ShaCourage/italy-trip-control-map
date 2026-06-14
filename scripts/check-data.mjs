@@ -307,6 +307,24 @@ if (errors.length) {
   process.exit(1);
 }
 
+const placeCounts = [...placesById.values()].reduce(
+  (counts, entry) => {
+    counts.byCity[entry.city] = (counts.byCity[entry.city] ?? 0) + 1;
+    counts.byCategory[entry.category] = (counts.byCategory[entry.category] ?? 0) + 1;
+    if (entry.category !== "stay" && entry.category !== "station") counts.listable += 1;
+    return counts;
+  },
+  { listable: 0, byCity: {}, byCategory: {} }
+);
+const categorySummary = Object.entries(placeCounts.byCategory)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([category, count]) => `${category} ${count}`)
+  .join(", ");
+
 console.log(
   `OK — ${placesById.size} places, ${sourcesById.size} sources, ${enhancementIds.size} enhancements, ${templateIds.size} templates`
 );
+console.log(
+  `     listable ${placeCounts.listable}; rome ${placeCounts.byCity.rome ?? 0}, florence ${placeCounts.byCity.florence ?? 0}`
+);
+console.log(`     categories: ${categorySummary}`);

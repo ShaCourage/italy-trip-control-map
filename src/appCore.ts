@@ -3,15 +3,9 @@
 import {
   categoryLabels,
   cityLabels,
-  Place,
-  PlaceCategory,
-  places as basePlaces,
-  sources as baseSources,
-  TripDay,
 } from "./data";
-import { extraPlaces, extraSources } from "./extraData";
-import { morePlaces } from "./morePlaces";
-import { sitePlaces } from "./sitePlaces";
+import type { City, Place, PlaceCategory, TripDay } from "./data";
+import { rawPlaces, rawSources } from "./data/catalog";
 import { tripTemplates } from "./templates";
 import { placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
 import type { RouteItem } from "./lib/routes";
@@ -104,7 +98,7 @@ export const categoryColors: Record<PlaceCategory, string> = {
 // id 중복 시 나중 항목이 이긴다 — 중복은 React key 충돌로 화면이 꼬이므로 개발 중 경고
 export const places = (() => {
   const merged = new Map<string, Place>();
-  for (const place of [...basePlaces, ...extraPlaces, ...morePlaces, ...sitePlaces]) {
+  for (const place of rawPlaces) {
     if (merged.has(place.id) && import.meta.env.DEV) {
       console.warn(`[data] 중복 장소 id: ${place.id} — 나중 항목으로 대체됨`);
     }
@@ -112,7 +106,30 @@ export const places = (() => {
   }
   return [...merged.values()];
 })();
-export const sources = [...baseSources, ...extraSources];
+export const sources = rawSources;
+
+const cityKeys = Object.keys(cityLabels) as City[];
+const categoryKeys = Object.keys(categoryLabels) as PlaceCategory[];
+
+function countBy<T extends string>(keys: readonly T[], predicate: (key: T) => number): Record<T, number> {
+  return Object.fromEntries(keys.map((key) => [key, predicate(key)])) as Record<T, number>;
+}
+
+export const placeStats = (() => {
+  const listable = places.filter((place) => place.category !== "stay" && place.category !== "station");
+  return {
+    total: places.length,
+    listable: listable.length,
+    priorityPins: places.filter((place) => place.priority <= 2).length,
+    must: places.filter((place) => place.priority === 1).length,
+    sources: sources.length,
+    withEnhancement: places.filter((place) => Boolean(placeEnhancements[place.id])).length,
+    withImage: places.filter((place) => Boolean(placeEnhancements[place.id]?.imageUrl)).length,
+    byCity: countBy(cityKeys, (city) => places.filter((place) => place.city === city).length),
+    listableByCity: countBy(cityKeys, (city) => listable.filter((place) => place.city === city).length),
+    byCategory: countBy(categoryKeys, (category) => places.filter((place) => place.category === category).length),
+  };
+})();
 
 // 로마·피렌체 6/19-28 기본 플랜은 "템플릿"이다.
 // 앱은 빈 일정으로 시작하고, 사용자가 콘셉트 템플릿(4종)을 적용하거나 날짜를 직접 만든다.
