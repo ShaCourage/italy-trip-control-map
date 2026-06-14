@@ -9,8 +9,11 @@ const sourceCollections = [
   { file: "src/data/sources.ts", name: "coreSources" },
   { file: "src/data/sources.ts", name: "researchSources" },
 ];
+const enhancementCollections = [
+  { file: "src/data/enhancements/rome.ts", name: "romePlaceEnhancements" },
+  { file: "src/data/enhancements/florence.ts", name: "florencePlaceEnhancements" },
+];
 const routeFiles = ["src/data/days.ts", "src/templates.ts"];
-const enhancementFile = "src/placeEnhancements.ts";
 const templateFile = "src/templates.ts";
 
 const parsedFiles = new Map();
@@ -246,32 +249,33 @@ for (const file of routeFiles) {
   visit(sourceFile);
 }
 
-const enhancementCollection = getCollection(enhancementFile, "placeEnhancements", "object");
 const enhancementIds = new Set();
 const enhancementCoverage = new Map();
-if (enhancementCollection) {
+for (const { file, name } of enhancementCollections) {
+  const enhancementCollection = getCollection(file, name, "object");
+  if (!enhancementCollection) continue;
   for (const property of enhancementCollection.properties) {
     if (!ts.isPropertyAssignment(property)) {
-      report(enhancementFile, property, "보강 데이터가 속성 할당이 아님");
+      report(file, property, "보강 데이터가 속성 할당이 아님");
       continue;
     }
     const id = propertyName(property.name);
     const value = unwrap(property.initializer);
     if (!id || !ts.isObjectLiteralExpression(value)) {
-      report(enhancementFile, property, "보강 데이터 키 또는 값 형식 오류");
+      report(file, property, "보강 데이터 키 또는 값 형식 오류");
       continue;
     }
-    if (enhancementIds.has(id)) report(enhancementFile, property, `중복 보강 데이터 id: ${id}`);
+    if (enhancementIds.has(id)) report(file, property, `중복 보강 데이터 id: ${id}`);
     enhancementIds.add(id);
-    if (!placesById.has(id)) report(enhancementFile, property, `장소 없는 보강 데이터: ${id}`);
+    if (!placesById.has(id)) report(file, property, `장소 없는 보강 데이터: ${id}`);
 
     const imageUrl = getString(value, "imageUrl");
     const imageSourceUrl = getString(value, "imageSourceUrl");
     const wikiTitle = getString(value, "wikiTitle");
-    if (imageUrl && !imageSourceUrl) report(enhancementFile, property, `${id} imageSourceUrl 없음`);
-    if (imageUrl && !isHttpUrl(imageUrl)) report(enhancementFile, property, `${id} imageUrl 오류: ${imageUrl}`);
+    if (imageUrl && !imageSourceUrl) report(file, property, `${id} imageSourceUrl 없음`);
+    if (imageUrl && !isHttpUrl(imageUrl)) report(file, property, `${id} imageUrl 오류: ${imageUrl}`);
     if (imageSourceUrl && !isHttpUrl(imageSourceUrl)) {
-      report(enhancementFile, property, `${id} imageSourceUrl 오류: ${imageSourceUrl}`);
+      report(file, property, `${id} imageSourceUrl 오류: ${imageSourceUrl}`);
     }
 
     const google = getObject(value, "google");
@@ -284,10 +288,10 @@ if (enhancementCollection) {
       const rating = getNumber(google, "rating");
       const lastChecked = getString(google, "lastChecked");
       if (rating === undefined || rating < 0 || rating > 5) {
-        report(enhancementFile, property, `${id} Google rating 범위 오류: ${rating ?? "없음"}`);
+        report(file, property, `${id} Google rating 범위 오류: ${rating ?? "없음"}`);
       }
       if (!lastChecked || !isValidDate(lastChecked)) {
-        report(enhancementFile, property, `${id} Google lastChecked 날짜 오류: ${lastChecked ?? "없음"}`);
+        report(file, property, `${id} Google lastChecked 날짜 오류: ${lastChecked ?? "없음"}`);
       }
     }
   }

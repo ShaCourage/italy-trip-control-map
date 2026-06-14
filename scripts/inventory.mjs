@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 
 const placeFiles = ["src/data/places/rome.ts", "src/data/places/florence.ts"];
+const enhancementFiles = ["src/data/enhancements/rome.ts", "src/data/enhancements/florence.ts"];
 const placesSrc = placeFiles.map((file) => readFileSync(file, "utf8")).join("\n").replace(/\r\n/g, "\n");
 const placeArrays = [...placesSrc.matchAll(/export const (?:romePlaces|florencePlaces)[\s\S]*?= \[([\s\S]*?)\n\];/g)].map(
   (match) => match[1]
@@ -18,7 +19,7 @@ for (const block of blocks) {
   if (id) places.push({ id, rank, category, city, koName, sourceIds });
 }
 
-const enhSrc = readFileSync("src/placeEnhancements.ts", "utf8").replace(/\r\n/g, "\n");
+const enhSrc = enhancementFiles.map((file) => readFileSync(file, "utf8")).join("\n").replace(/\r\n/g, "\n");
 const enhancementEntries = [...enhSrc.matchAll(/^  ("?)([\w'-]+)\1: \{([\s\S]*?)^  \},/gm)];
 const enhIds = new Set(enhancementEntries.map((m) => m[2]));
 const wikiIds = new Set(enhancementEntries.filter((m) => /wikiTitle:/.test(m[3])).map((m) => m[2]));

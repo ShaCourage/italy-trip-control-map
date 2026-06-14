@@ -142,7 +142,9 @@ src/
     labels.ts             # cityLabels, categoryLabels, 색상
     days.ts               # tripDays
     fieldGuides.ts        # phraseGroups, safetyNotes, packingChecklist
-    enhancements.ts       # 확인된 평점/이미지/하이라이트 (lastChecked 필수)
+    enhancements/schema.ts# PlaceEnhancement 타입 + 카테고리 짧은 라벨
+    enhancements/rome.ts  # 로마 보강: 확인된 평점/이미지/하이라이트
+    enhancements/florence.ts # 피렌체 보강: 확인된 평점/이미지/하이라이트
 ```
 
 규칙:

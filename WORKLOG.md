@@ -255,3 +255,12 @@ type TripTemplate = {
 - `appCore.placeStats`에 미보강, 위키 제목, 확인 평점, 사진 없음, 공식 출처 개수를 추가
 - 도구 화면의 지도 파일 카드에 새 커버리지 지표를 표시: 위키 제목 76곳, 확인 평점 23곳, 공식 출처 32곳, 미보강 69곳, 사진 없음 172곳
 - `scripts/check-data.mjs`와 `scripts/inventory.mjs`도 같은 기준의 커버리지 요약을 출력하도록 맞춤
+
+---
+
+## 2026-06-14 후속 세션 — 장소 보강 데이터 도시별 분리
+
+- 1,437줄 단일 `src/placeEnhancements.ts`를 호환용 facade로 축소
+- 실제 보강 데이터는 `src/data/enhancements/rome.ts` 93건, `src/data/enhancements/florence.ts` 82건으로 분리
+- `PlaceEnhancement` 타입과 `categoryShortLabels`는 `src/data/enhancements/schema.ts`로 이동
+- `scripts/check-data.mjs`, `scripts/inventory.mjs`, `scripts/fetch-images.mjs`, `scripts/strip-images.mjs`, `scripts/inject-stories.mjs`가 도시별 보강 파일을 기준으로 동작하도록 갱신

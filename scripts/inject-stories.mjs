@@ -64,25 +64,32 @@ const stories = {
     "나보나 근처의 미니 티라미수 전문점. 두 가지 컵 사이즈에 피스타치오, 솔티드카라멜 등 변형 맛 — 폼피와 양대 산맥으로 묶인다.",
 };
 
-const file = "src/placeEnhancements.ts";
-let src = readFileSync(file, "utf8");
+const files = ["src/data/enhancements/rome.ts", "src/data/enhancements/florence.ts"];
+const sources = new Map(files.map((file) => [file, readFileSync(file, "utf8")]));
 let injected = 0;
 let skipped = [];
 
 for (const [id, story] of Object.entries(stories)) {
   const keyPattern = /^[\w-]+$/.test(id) && !id.includes("-") ? id : `"${id}"`;
   const open = `  ${keyPattern}: {`;
-  const index = src.indexOf(open);
-  if (index === -1) {
-    skipped.push(id);
-    continue;
+  let found = false;
+  for (const file of files) {
+    let src = sources.get(file);
+    const index = src.indexOf(open);
+    if (index === -1) continue;
+    found = true;
+    const block = src.slice(index, src.indexOf("\n  }", index));
+    if (block.includes("story:")) break; // 이미 있음
+    const lineEnd = src.indexOf("\n", index);
+    src = `${src.slice(0, lineEnd + 1)}    story:\n      ${JSON.stringify(story)},\n${src.slice(lineEnd + 1)}`;
+    sources.set(file, src);
+    injected += 1;
+    break;
   }
-  const block = src.slice(index, src.indexOf("\n  }", index));
-  if (block.includes("story:")) continue; // 이미 있음
-  const lineEnd = src.indexOf("\n", index);
-  src = `${src.slice(0, lineEnd + 1)}    story:\n      ${JSON.stringify(story)},\n${src.slice(lineEnd + 1)}`;
-  injected += 1;
+  if (!found) {
+    skipped.push(id);
+  }
 }
 
-writeFileSync(file, src);
+for (const [file, src] of sources) writeFileSync(file, src);
 console.log(`injected: ${injected}, skipped(not found): ${skipped.join(", ") || "none"}`);

@@ -1,9 +1,9 @@
-// wikiTitle → Wikipedia REST 썸네일 URL을 placeEnhancements.ts에 굽는 스크립트
+// wikiTitle → Wikipedia REST 썸네일 URL을 도시별 enhancement 파일에 굽는 스크립트
 // 사용: node scripts/fetch-images.mjs          (드라이런 — 결과만 출력)
 //       node scripts/fetch-images.mjs --apply  (imageUrl/imageSourceUrl 주입)
 import { readFileSync, writeFileSync } from "node:fs";
 
-const FILE = "src/placeEnhancements.ts";
+const FILES = ["src/data/enhancements/rome.ts", "src/data/enhancements/florence.ts"];
 const APPLY = process.argv.includes("--apply");
 
 // 요약 페이지 이미지가 사진이 아니라 문장(紋章)·로고인 경우 대체 문서로 교체
@@ -14,14 +14,16 @@ const titleOverrides = {
   "fassi-gelato": "Palazzo del Freddo Giovanni Fassi",
 };
 
-const src = readFileSync(FILE, "utf8");
+const sources = new Map(FILES.map((file) => [file, readFileSync(file, "utf8")]));
 const entryPattern = /^  ("?)([\w'-]+)\1: \{([\s\S]*?)^  \},/gm;
 const targets = [];
-for (const match of src.matchAll(entryPattern)) {
-  const [, , id, body] = match;
-  const wikiTitle = body.match(/wikiTitle: "([^"]+)"/)?.[1];
-  const hasImage = /imageUrl:/.test(body);
-  if (wikiTitle && !hasImage) targets.push({ id, title: titleOverrides[id] ?? wikiTitle });
+for (const [file, src] of sources) {
+  for (const match of src.matchAll(entryPattern)) {
+    const [, , id, body] = match;
+    const wikiTitle = body.match(/wikiTitle: "([^"]+)"/)?.[1];
+    const hasImage = /imageUrl:/.test(body);
+    if (wikiTitle && !hasImage) targets.push({ file, id, title: titleOverrides[id] ?? wikiTitle });
+  }
 }
 
 console.log(`targets: ${targets.length}`);
@@ -54,6 +56,7 @@ for (const target of targets) {
   }
   const image = data?.thumbnail?.source ? upscale(data.thumbnail.source) : undefined;
   results.push({
+    file: target.file,
     id: target.id,
     title: target.title,
     lang,
@@ -69,18 +72,20 @@ for (const r of results) {
 }
 
 if (APPLY) {
-  let updated = src;
+  const updatedByFile = new Map(sources);
   let count = 0;
   for (const r of results) {
     if (!r.image) continue;
+    let updated = updatedByFile.get(r.file);
     const keyToken = `  ${/[^\w]/.test(r.id) || r.id.includes("-") ? `"${r.id}"` : r.id}: {`;
     const index = updated.indexOf(keyToken);
     if (index === -1) continue;
     const lineEnd = updated.indexOf("\n", index);
     const injection = `    imageUrl: ${JSON.stringify(r.image)},\n${r.page ? `    imageSourceUrl: ${JSON.stringify(r.page)},\n` : ""}`;
     updated = updated.slice(0, lineEnd + 1) + injection + updated.slice(lineEnd + 1);
+    updatedByFile.set(r.file, updated);
     count += 1;
   }
-  writeFileSync(FILE, updated);
+  for (const [file, updated] of updatedByFile) writeFileSync(file, updated);
   console.log(`\napplied imageUrl to ${count} entries`);
 }
