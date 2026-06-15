@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-15 (모바일 템플릿 진입 문구 정리)
+마지막 갱신: 2026-06-15 (산테우스타키오 실사진 추가)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -14,8 +14,8 @@
 - 작업 트리 깨끗, `origin/main`과 동기화됨
 - 검증 게이트: `npm run build` = `check:data` → `check:routes` → `check:storage` → `check:ui-copy` → `tsc -b` → `vite build`
   (데이터/루트 규칙/저장 상태 정규화/구식 UI 문구 오류가 있으면 번들링 전에 실패)
-- 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 72곳
-  · 위키 제목 76곳 · 확인 평점 23곳 · 공식 출처 32곳 · 미보강 69곳 · 사진 없음 172곳
+- 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 73곳
+  · 위키 제목 76곳 · 확인 평점 23곳 · 공식 출처 32곳 · 미보강 69곳 · 사진 없음 171곳
 - 데이터 구조: `src/data.ts`와 `src/placeEnhancements.ts`는 호환용 facade. 실제 데이터는 `src/data/schema.ts`,
   `labels.ts`, `days.ts`, `fieldGuides.ts`, `sources.ts`, `places/{rome,florence}.ts`,
   `enhancements/{schema,rome,florence}.ts`로 분리.
@@ -53,11 +53,11 @@
 
 ## 다음 할 일 (우선순위)
 
-### 1. 사진 미해결 3곳 (`src/placeEnhancements.ts`의 `imageUrl`)
+### 1. 사진 미해결 2곳 (`src/data/enhancements/rome.ts`의 `imageUrl`)
 자동 수집은 실패했고, Wikimedia Commons에서 라이선스가 명확한 사진 3곳은 수동 지정 완료:
-`roscioli`, `tazza-doro`, `buca-lapi`
+`roscioli`, `tazza-doro`, `buca-lapi`. 추가로 `sant-eustachio`는 Commons의 CC BY-SA 3.0 매장 사진을 지정 완료.
 
-남은 곳: `armando-al-pantheon`, `sant-eustachio`, `forno-campo-de-fiori`
+남은 곳: `armando-al-pantheon`, `forno-campo-de-fiori`
 → 정확한 매장 사진이나 라이선스 명확한 무료 이미지 URL을 찾으면 `imageUrl`에 수동 지정. (안 하면 카테고리 그래픽 폴백 유지)
 
 ### 2. F2 — 데이터 파일 통합 (완료)
@@ -77,6 +77,8 @@
 ---
 
 ## 완료 (2026-06-14~15, Opus 세션 이어서)
+- **산테우스타키오 실사진 추가** — `sant-eustachio`에 Wikimedia Commons의 CC BY-SA 3.0 매장 사진
+  (`LPLT`)을 출처/크레딧과 함께 지정. 실사진 집계 73곳, 사진 없음 171곳으로 갱신
 - **모바일 템플릿 진입 문구 정리** — 빈 일정 첫 화면을 `여행 템플릿 고르기`로 명확히 바꾸고,
   템플릿 버튼도 `이 템플릿으로 시작`/`템플릿 적용`으로 정리. 반복 데이터 집계용 `npm run inventory` 추가
 - **예산 기록 정규화 강화** — 손상 백업의 `NaN/Infinity/0 이하 금액`, 빈 라벨·날짜, 잘못된 통화,
@@ -92,10 +94,10 @@
 - **장소 탭 문구 정합성 검사** — 오늘/지도 빈 상태 안내에 남아 있던 구식 `랭킹` 표현을 `장소 탭`으로 교체.
   `scripts/check-ui-copy.mjs`를 추가하고 build 게이트에 묶어 같은 회귀를 차단
 - **사진 보강 3곳 추가** — 자동 수집이 안 되던 `roscioli`, `tazza-doro`, `buca-lapi`에
-  Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정. 현재 검증된 실사진 집계는 72곳.
+  Wikimedia Commons 이미지 URL/출처/크레딧을 수동 지정. 현재 검증된 실사진 집계는 73곳.
   `scripts/inventory.mjs`도 enhancement 객체 전체를 기준으로 `wikiTitle`/`imageUrl`을 세도록 보정
 - **장소 커버리지 집계 확장** — `appCore.placeStats`, 도구 화면, `check:data`, `inventory`가
-  위키 제목 76곳, 확인 평점 23곳, 공식 출처 32곳, 미보강 69곳, 사진 없음 172곳을 같은 기준으로 표시
+  위키 제목 76곳, 확인 평점 23곳, 공식 출처 32곳, 미보강 69곳, 사진 없음 171곳을 같은 기준으로 표시
 - **장소 보강 데이터 도시별 분리** — 1,437줄 단일 `placeEnhancements.ts`를 facade로 축소하고,
   실제 보강 데이터는 `src/data/enhancements/rome.ts` 93건, `florence.ts` 82건,
   공통 타입/카테고리 라벨은 `schema.ts`로 분리. `check:data`, `inventory`, 사진/스토리 보조 스크립트도 새 경로 기준으로 변경
@@ -151,7 +153,7 @@
 **콘텐츠/UX (W2~W3)**
 - 여행 템플릿 4종(`templates.ts`): classic/foodie/relaxed/photo. 일정 탭 상시 노출 +
   모바일 진입점(하단 `템플릿`, 오늘 화면 `템플릿 변경`). `applyTemplate(id)` + `appliedTemplateId` 저장
-- 장소 대량 수집: `morePlaces.ts` 38곳(로마 18 + 피렌체 20), 가격·메뉴·팁 포함 → 커버리지 175곳, 실사진 72곳
+- 장소 대량 수집: `morePlaces.ts` 38곳(로마 18 + 피렌체 20), 가격·메뉴·팁 포함 → 커버리지 175곳, 실사진 73곳
 - UI 개편: `styles.css` 디자인 토큰(폰트 7단계, 웜 팔레트), Pretendard, 마커 이원화(`ZoomWatcher`), 탭 순서 재구성
 - 장소 탭: `RankingScreen` 사진형 카드 + 정렬(인기/평점/소요시간) + 바텀시트 상세
 - **A1** 설정(숙소 좌표·시작 탭·기본 모드) · **A2** JSON 백업·복원 · **A4** 문서함(유형 5·필터·수정·URL 검증)

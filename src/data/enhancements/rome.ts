@@ -450,6 +450,9 @@ export const romePlaceEnhancements: Record<string, PlaceEnhancement> = {
     bestFor: ["젤라또", "나보나 근처", "사진"],
   },
   "sant-eustachio": {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Caff%C3%A8_Sant%27Eustachio.JPG/330px-Caff%C3%A8_Sant%27Eustachio.JPG",
+    imageSourceUrl: "https://commons.wikimedia.org/wiki/File:Caff%C3%A8_Sant%27Eustachio.JPG",
+    imageCredit: "LPLT / CC BY-SA 3.0",
     shortLabel: "산테우스타키오",
     wikiTitle: "Sant'Eustachio Il Caffè",
     story:
