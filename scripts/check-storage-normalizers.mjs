@@ -21,6 +21,7 @@ async function importTs(file) {
 const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await importTs("tripDays.ts");
 const { normalizeCustomPlace, normalizeCustomPlaces } = await importTs("customPlaces.ts");
 const { normalizeAppSettings } = await importTs("appSettings.ts");
+const { normalizeBooleanRecord, normalizeStringRecord } = await importTs("userRecords.ts");
 
 assert.equal(makeDayLabel("2026-06-20"), "6/20 토");
 assert.equal(makeDayLabel("not-a-date"), "not-a-date");
@@ -153,6 +154,17 @@ assert.deepEqual(
     defaultFilter: "photo",
     florenceHotel: { lat: 43.77, lng: 11.25 },
   }
+);
+
+assert.deepEqual(normalizeBooleanRecord(null), {});
+assert.deepEqual(
+  normalizeBooleanRecord({ "route-1": true, "route-2": false, "bad-string": "true", "": true }),
+  { "route-1": true, "route-2": false }
+);
+assert.deepEqual(normalizeStringRecord(["bad"]), {});
+assert.deepEqual(
+  normalizeStringRecord({ pantheon: "  예약 확인  ", empty: "   ", bad: 42 }),
+  { pantheon: "예약 확인" }
 );
 
 console.log("OK - storage normalizers");

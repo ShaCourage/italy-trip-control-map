@@ -49,6 +49,7 @@ import { normalizeBudget } from "./lib/budget";
 import type { BudgetEntry } from "./lib/budget";
 import { normalizeCustomPlaces } from "./lib/customPlaces";
 import { makeDayLabel, normalizeTripDays } from "./lib/tripDays";
+import { normalizeBooleanRecord, normalizeStringRecord } from "./lib/userRecords";
 import type { MoreKey } from "./screens/MoreScreen";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
@@ -173,7 +174,7 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(initialSettings);
   const [customPlaces, setCustomPlaces] = useState<Place[]>(initialCustomPlaces);
   const [routes, setRoutes] = useState<Record<string, RouteItem[]>>(() => loadStoredRoutes());
-  const [done, setDone] = useState<Record<string, boolean>>(() => loadSlice("done", {}));
+  const [done, setDone] = useState<Record<string, boolean>>(() => normalizeBooleanRecord(loadSlice<unknown>("done", {})));
   const [selectedPlaceId, setSelectedPlaceId] = useState<string>(
     activeTemplateRoutes()[initialDayId]?.[1]?.placeId ?? places[0].id
   );
@@ -181,8 +182,10 @@ export default function App() {
   const [rankingCity, setRankingCity] = useState<"all" | "rome" | "florence">("all");
   const [query, setQuery] = useState("");
   const [moreSection, setMoreSection] = useState<MoreKey>("safety");
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => loadSlice("checks", {}));
-  const [notes, setNotes] = useState<Record<string, string>>(() => loadSlice("notes", {}));
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() =>
+    normalizeBooleanRecord(loadSlice<unknown>("checks", {}))
+  );
+  const [notes, setNotes] = useState<Record<string, string>>(() => normalizeStringRecord(loadSlice<unknown>("notes", {})));
   const [docs, setDocs] = useState<TripDoc[]>(() => normalizeTripDocs(loadSlice<unknown>("docs", [])));
   const [budget, setBudget] = useState<BudgetEntry[]>(() => normalizeBudget(loadSlice<unknown>("budget", [])));
   const [toast, setToast] = useState("");
@@ -565,9 +568,9 @@ export default function App() {
           days?: unknown;
           customPlaces?: unknown;
           routes?: Record<string, RouteItem[]>;
-          done?: Record<string, boolean>;
-          checks?: Record<string, boolean>;
-          notes?: Record<string, string>;
+          done?: unknown;
+          checks?: unknown;
+          notes?: unknown;
           docs?: TripDoc[];
           budget?: BudgetEntry[];
           settings?: AppSettings;
@@ -584,9 +587,9 @@ export default function App() {
           setSelectedDayId(importedDays[0]?.id ?? "");
         }
         if (data.routes) setRoutes(sanitizeRoutes(data.routes, (placeId) => placesById.has(placeId)));
-        if (data.done) setDone(data.done);
-        if (data.checks) setCheckedItems(data.checks);
-        if (data.notes) setNotes(data.notes);
+        if (data.done !== undefined) setDone(normalizeBooleanRecord(data.done));
+        if (data.checks !== undefined) setCheckedItems(normalizeBooleanRecord(data.checks));
+        if (data.notes !== undefined) setNotes(normalizeStringRecord(data.notes));
         if (Array.isArray(data.docs)) setDocs(normalizeTripDocs(data.docs));
         if (Array.isArray(data.budget)) setBudget(normalizeBudget(data.budget));
         if (data.settings) {
