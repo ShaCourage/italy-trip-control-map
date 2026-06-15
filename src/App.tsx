@@ -797,11 +797,11 @@ function SetupScreen({
     <section className="screen setup-screen">
       <div className="screen-header">
         <div>
-          <p className="eyebrow">시작</p>
-          <h1>여행 일정 만들기</h1>
+          <p className="eyebrow">템플릿</p>
+          <h1>여행 템플릿 고르기</h1>
           <p className="subline">
-            아직 일정이 비어 있어요. 4가지 콘셉트 중 하나로 시작하거나 날짜를 직접 추가하세요. 로마 5일 +
-            6/24 이동 + 피렌체 4일 골격과 예약 앵커는 공통이에요.
+            아직 일정이 비어 있어요. 아래 4가지 여행 템플릿 중 하나로 시작하거나 날짜를 직접 추가하세요.
+            로마 5일 + 6/24 이동 + 피렌체 4일 골격과 예약 앵커는 공통이에요.
           </p>
         </div>
       </div>
@@ -821,9 +821,9 @@ function SetupScreen({
               </span>
             ))}
           </div>
-          <button className="solid-button" onClick={() => applyTemplate(template.id)}>
+          <button className="solid-button" onClick={() => applyTemplate(template.id)} aria-label={`${template.name} 템플릿으로 시작`}>
             <Sparkles size={17} />
-            이 콘셉트로 시작
+            이 템플릿으로 시작
           </button>
         </article>
       ))}

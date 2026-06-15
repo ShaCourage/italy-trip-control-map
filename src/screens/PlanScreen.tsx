@@ -56,9 +56,13 @@ export default function PlanScreen({
             <article key={template.id} className="template-mini-card">
               <strong>{template.name}</strong>
               <span>{template.tagline}</span>
-              <button className="ghost-button compact" onClick={() => applyTemplate(template.id)}>
+              <button
+                className="ghost-button compact"
+                onClick={() => applyTemplate(template.id)}
+                aria-label={`${template.name} 템플릿 적용`}
+              >
                 <Sparkles size={15} />
-                적용
+                템플릿 적용
               </button>
             </article>
           ))}
