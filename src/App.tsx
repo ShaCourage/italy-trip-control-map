@@ -52,6 +52,7 @@ import { makeDayLabel, normalizeTripDays } from "./lib/tripDays";
 import { normalizeBooleanRecord, normalizeStringRecord } from "./lib/userRecords";
 import type { MoreKey } from "./screens/MoreScreen";
 import { downloadTextFile } from "./lib/download";
+import { copyText } from "./lib/clipboard";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
 const RankingScreen = lazy(() => import("./screens/RankingScreen"));
@@ -492,8 +493,8 @@ export default function App() {
   }
 
   async function copyPhrase(text: string) {
-    await navigator.clipboard?.writeText(text);
-    setToast("복사됨");
+    const copied = await copyText(text);
+    setToast(copied ? "복사됨" : "복사 권한을 확인해주세요");
   }
 
   function setPlaceNote(placeId: string, text: string) {

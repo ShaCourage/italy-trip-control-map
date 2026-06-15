@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-15 (파일 다운로드 안정화)
+마지막 갱신: 2026-06-15 (회화 복사 fallback)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -43,6 +43,8 @@
   장소명·설명에 `&`, `<`, `>`가 들어와도 Google My Maps 가져오기가 깨지지 않게 방어.
 - 백업/지도 파일 다운로드: `src/lib/download.ts`의 공용 헬퍼로 저장 동작을 통합해 백업 JSON, CSV, KML이
   같은 방식으로 저장되고 모바일 브라우저에서 object URL이 너무 빨리 해제되지 않게 방어.
+- 회화 복사: `src/lib/clipboard.ts`가 Clipboard API 실패 시 textarea fallback을 시도하고,
+  실패하면 사용자에게 권한 확인 토스트를 띄움.
 
 ---
 
@@ -84,6 +86,8 @@
 ---
 
 ## 완료 (2026-06-14~15, Opus 세션 이어서)
+- **회화 복사 fallback 추가** — 브라우저 권한/환경 때문에 `navigator.clipboard.writeText`가 실패해도
+  textarea 기반 복사를 한 번 더 시도하고, 실패 시 토스트로 권한 확인을 안내
 - **파일 다운로드 안정화** — 백업 JSON, CSV, KML 저장을 `src/lib/download.ts` 공용 헬퍼로 통합하고,
   object URL 해제를 지연해 모바일/PWA 환경에서 파일 저장이 중간에 끊길 가능성을 줄임
 - **지도 파일 내보내기 이스케이프 보강** — CSV/KML 텍스트 이스케이프를 `src/lib/exportText.ts`로 분리하고,
