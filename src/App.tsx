@@ -46,6 +46,7 @@ import { normalizeTripDocs } from "./lib/docs";
 import type { TripDoc, TripDocInput } from "./lib/docs";
 import { normalizeBudget } from "./lib/budget";
 import type { BudgetEntry } from "./lib/budget";
+import { normalizeCustomPlaces } from "./lib/customPlaces";
 import { makeDayLabel, normalizeTripDays } from "./lib/tripDays";
 import type { MoreKey } from "./screens/MoreScreen";
 
@@ -137,16 +138,7 @@ function loadStoredDays(): TripDay[] {
 }
 
 function loadCustomPlaces(): Place[] {
-  const parsed = loadSlice<Place[]>("customPlaces", []);
-  return Array.isArray(parsed)
-    ? parsed.filter(
-        (place) =>
-          place &&
-          typeof place.id === "string" &&
-          typeof place.lat === "number" &&
-          typeof place.lng === "number"
-      )
-    : [];
+  return normalizeCustomPlaces(loadSlice<unknown>("customPlaces", []));
 }
 
 const initialCustomPlaces = loadCustomPlaces();
@@ -570,7 +562,7 @@ export default function App() {
       .then((text) => {
         const data = JSON.parse(text) as {
           days?: unknown;
-          customPlaces?: Place[];
+          customPlaces?: unknown;
           routes?: Record<string, RouteItem[]>;
           done?: Record<string, boolean>;
           checks?: Record<string, boolean>;
@@ -580,8 +572,10 @@ export default function App() {
           settings?: AppSettings;
         };
         if (Array.isArray(data.customPlaces)) {
-          data.customPlaces.forEach(registerPlace);
-          setCustomPlaces(data.customPlaces);
+          const importedCustomPlaces = normalizeCustomPlaces(data.customPlaces);
+          customPlaces.forEach((place) => unregisterPlace(place.id));
+          importedCustomPlaces.forEach(registerPlace);
+          setCustomPlaces(importedCustomPlaces);
         }
         if (Array.isArray(data.days)) {
           const importedDays = normalizeTripDays(data.days);

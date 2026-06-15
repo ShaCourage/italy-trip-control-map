@@ -265,7 +265,7 @@ localStorage 키는 `italy-trip-state-v3` 하나로 통합하고 `storage.ts`가
 ## 9. 검증 체크리스트 (변경마다)
 
 - `npm run build` 통과
-- 저장 날짜 데이터가 예전/부분 형식이어도 `route/fallback/checklist`가 배열로 보정되는가 (`check:storage`)
+- 저장 날짜/사용자 장소 데이터가 예전/부분 형식이어도 필수 배열 필드가 보정되는가 (`check:storage`)
 - 사용자 노출 안내 문구에서 이전 탭명 `랭킹`이 다시 보이지 않는가 (`check:ui-copy`)
 - 첫 실행(시크릿 창): **빈 셋업 화면**이 뜨는가 (날짜/코스 미리 채워지면 안 됨)
 - 템플릿 적용 시 10일 일정 + 추천 코스가 채워지는가
