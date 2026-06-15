@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+
+const source = readFileSync(new URL("../src/lib/tripDays.ts", import.meta.url), "utf8");
+const compiled = ts.transpileModule(source, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+  reportDiagnostics: true,
+});
+const diagnostics = compiled.diagnostics ?? [];
+assert.equal(diagnostics.length, 0, diagnostics.map((item) => item.messageText).join("\n"));
+
+const moduleUrl = `data:text/javascript;base64,${Buffer.from(compiled.outputText).toString("base64")}`;
+const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await import(moduleUrl);
+
+assert.equal(makeDayLabel("2026-06-20"), "6/20 토");
+assert.equal(makeDayLabel("not-a-date"), "not-a-date");
+assert.equal(normalizeTripDay({ id: "broken" }), undefined);
+assert.deepEqual(normalizeTripDays("bad"), []);
+
+assert.deepEqual(
+  normalizeTripDay({
+    date: "2026-06-20",
+    city: "unknown",
+    label: "",
+    title: "  ",
+    areaFocus: "  남부 테스트  ",
+    route: [
+      { placeId: " pantheon ", time: " 09:00 ", locked: "yes", note: "  입장 확인  " },
+      { placeId: 42 },
+    ],
+    fallback: [" 카페 ", "", 3],
+    checklist: "old-shape",
+  }),
+  {
+    id: "2026-06-20",
+    date: "2026-06-20",
+    label: "6/20 토",
+    city: "rome",
+    title: "직접 만든 일정",
+    areaFocus: "남부 테스트",
+    route: [{ placeId: "pantheon", time: "09:00", note: "입장 확인" }],
+    fallback: ["카페"],
+    checklist: [],
+  }
+);
+
+assert.deepEqual(
+  normalizeTripDays([
+    { date: "2026-06-21", city: "florence", checklist: ["여권"], fallback: [], route: [] },
+    null,
+  ]),
+  [
+    {
+      id: "2026-06-21",
+      date: "2026-06-21",
+      label: "6/21 일",
+      city: "florence",
+      title: "직접 만든 일정",
+      areaFocus: "직접 구성",
+      route: [],
+      fallback: [],
+      checklist: ["여권"],
+    },
+  ]
+);
+
+console.log("OK - storage normalizers");

@@ -1,6 +1,6 @@
 # 작업 인계 메모
 
-마지막 갱신: 2026-06-15 (장소 탭 문구 정합성 검사)
+마지막 갱신: 2026-06-15 (저장 날짜 정규화)
 
 > 이 문서는 **현재 상태**와 **다음 할 일**만 담는다. 백로그 ID(A/B/C/F…)의 정의는 `DESIGN.md` §6~7,
 > 완료된 기능의 상세 작업 기록은 `WORKLOG.md`(아카이브)를 본다.
@@ -12,8 +12,8 @@
 - 브랜치: `main` · 원격: `origin` (`https://github.com/ShaCourage/italy-trip-control-map.git`) — **공개 저장소**
 - **배포됨**: https://shacourage.github.io/italy-trip-control-map/ (main 푸시마다 자동 배포)
 - 작업 트리 깨끗, `origin/main`과 동기화됨
-- 검증 게이트: `npm run build` = `check:data` → `check:routes` → `check:ui-copy` → `tsc -b` → `vite build`
-  (데이터/루트 규칙/구식 UI 문구 오류가 있으면 번들링 전에 실패)
+- 검증 게이트: `npm run build` = `check:data` → `check:routes` → `check:storage` → `check:ui-copy` → `tsc -b` → `vite build`
+  (데이터/루트 규칙/저장 상태 정규화/구식 UI 문구 오류가 있으면 번들링 전에 실패)
 - 데이터 규모: 장소 248 · 출처 33 · 보강 175 · 템플릿 4 · 실사진 72곳
   · 위키 제목 76곳 · 확인 평점 23곳 · 공식 출처 32곳 · 미보강 69곳 · 사진 없음 172곳
 - 데이터 구조: `src/data.ts`와 `src/placeEnhancements.ts`는 호환용 facade. 실제 데이터는 `src/data/schema.ts`,
@@ -23,6 +23,8 @@
   카테고리/보강/사진/출처 개수를 제공
 - 동작 확인됨: 빈 셋업 → 템플릿 4종 적용, 루트 편집(잠금/숙소 복귀 규칙), 백업(v7)·복원,
   문서함, 예산, 공식 링크/현지명 병기, 저장소 v3 마이그레이션, 서비스워커 자동 갱신, 콘솔 에러 0
+- 저장 상태 방어: `src/lib/tripDays.ts`가 localStorage/백업/템플릿 날짜 데이터를 정규화해
+  `route/fallback/checklist` 누락으로 오늘·일정 화면이 깨지는 회귀를 차단.
 - UI 표기 원칙: 사용자가 보는 라벨은 한국어 우선. 장소명은 `원문명(발음, 뜻/성격)` 한 줄로 통일,
   구글 평점 미검증 장소는 임의 평점 대신 내부 `인기 {rank}`만 표시.
   하단 탭명은 `장소`로 통일하고, 이전 명칭인 `랭킹`이 안내 문구에 다시 들어오면 `check:ui-copy`가 실패.
@@ -73,6 +75,8 @@
 ---
 
 ## 완료 (2026-06-14~15, Opus 세션 이어서)
+- **저장 날짜 정규화 추가** — 예전 localStorage나 백업의 날짜 객체에 `route/fallback/checklist`가 빠져도
+  앱 진입·백업 복원 시 안전한 배열로 보정. `check:storage`를 build 게이트에 추가
 - **장소 탭 문구 정합성 검사** — 오늘/지도 빈 상태 안내에 남아 있던 구식 `랭킹` 표현을 `장소 탭`으로 교체.
   `scripts/check-ui-copy.mjs`를 추가하고 build 게이트에 묶어 같은 회귀를 차단
 - **사진 보강 3곳 추가** — 자동 수집이 안 되던 `roscioli`, `tazza-doro`, `buca-lapi`에

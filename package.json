@@ -7,8 +7,9 @@
     "dev": "vite --host 0.0.0.0",
     "check:data": "node scripts/check-data.mjs",
     "check:routes": "node scripts/check-route-ops.mjs",
+    "check:storage": "node scripts/check-storage-normalizers.mjs",
     "check:ui-copy": "node scripts/check-ui-copy.mjs",
-    "build": "npm run check:data && npm run check:routes && npm run check:ui-copy && tsc -b && vite build",
+    "build": "npm run check:data && npm run check:routes && npm run check:storage && npm run check:ui-copy && tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {

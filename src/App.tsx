@@ -46,6 +46,7 @@ import { normalizeTripDocs } from "./lib/docs";
 import type { TripDoc, TripDocInput } from "./lib/docs";
 import { normalizeBudget } from "./lib/budget";
 import type { BudgetEntry } from "./lib/budget";
+import { makeDayLabel, normalizeTripDays } from "./lib/tripDays";
 import type { MoreKey } from "./screens/MoreScreen";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
@@ -124,14 +125,14 @@ function loadStoredRoutes(): Record<string, RouteItem[]> {
 
 // 기본은 빈 일정. 단, 이전 버전에서 루트를 만들어둔 흔적이 있으면 템플릿 일정으로 복원해 데이터를 살린다.
 function loadStoredDays(): TripDay[] {
-  const stored = loadSlice<TripDay[] | undefined>("days", undefined);
+  const stored = loadSlice<unknown>("days", undefined);
   if (Array.isArray(stored)) {
-    return stored.filter((day) => day && typeof day.id === "string" && typeof day.date === "string");
+    return normalizeTripDays(stored);
   }
   // days 슬라이스 자체가 없을 때만(첫 실행) 루트 흔적으로 템플릿 복원
   const legacyRoutes = loadSlice<Record<string, RouteItem[]>>("routes", {});
   const hasAny = Object.values(legacyRoutes).some((route) => Array.isArray(route) && route.length > 0);
-  if (hasAny) return templateDays.map((day) => ({ ...day }));
+  if (hasAny) return normalizeTripDays(templateDays);
   return [];
 }
 
@@ -154,14 +155,6 @@ initialCustomPlaces.forEach(registerPlace);
 function localISODate() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
-const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
-
-function makeDayLabel(date: string) {
-  const parsed = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return date;
-  return `${parsed.getMonth() + 1}/${parsed.getDate()} ${dayNames[parsed.getDay()]}`;
 }
 
 const emptyDay: TripDay = {
@@ -363,7 +356,7 @@ export default function App() {
     }
     setAppliedTemplateId(template.id);
     const routesForTemplate = templateRoutesById[template.id] ?? {};
-    const newDays = template.days.map((day) => ({ ...day }));
+    const newDays = normalizeTripDays(template.days);
     setDays(newDays);
     setRoutes(
       Object.fromEntries(
@@ -576,7 +569,7 @@ export default function App() {
       .text()
       .then((text) => {
         const data = JSON.parse(text) as {
-          days?: TripDay[];
+          days?: unknown;
           customPlaces?: Place[];
           routes?: Record<string, RouteItem[]>;
           done?: Record<string, boolean>;
@@ -591,8 +584,9 @@ export default function App() {
           setCustomPlaces(data.customPlaces);
         }
         if (Array.isArray(data.days)) {
-          setDays(data.days);
-          setSelectedDayId(data.days[0]?.id ?? "");
+          const importedDays = normalizeTripDays(data.days);
+          setDays(importedDays);
+          setSelectedDayId(importedDays[0]?.id ?? "");
         }
         if (data.routes) setRoutes(sanitizeRoutes(data.routes, (placeId) => placesById.has(placeId)));
         if (data.done) setDone(data.done);
