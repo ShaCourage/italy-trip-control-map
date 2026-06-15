@@ -38,6 +38,7 @@ import type { AppSettings, FilterKey, TabKey, TripDay } from "../appCore";
 import { IconButton, Pill } from "../components/place";
 import { docTypeLabels, normalizeDocUrl } from "../lib/docs";
 import type { DocType, TripDoc, TripDocInput } from "../lib/docs";
+import { downloadTextFile } from "../lib/download";
 import { escapeCsvValue, escapeXmlText } from "../lib/exportText";
 import {
   budgetCategories,
@@ -72,16 +73,6 @@ async function hardRefresh() {
     // 실패해도 새로고침은 시도
   }
   window.location.reload();
-}
-
-function downloadFile(name: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function exportCsv() {
@@ -126,7 +117,7 @@ function exportCsv() {
       }),
   ];
 
-  downloadFile("italy-trip-map.csv", rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n"), "text/csv;charset=utf-8");
+  downloadTextFile("italy-trip-map.csv", rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n"), "text/csv;charset=utf-8");
 }
 
 function exportKml() {
@@ -142,7 +133,7 @@ function exportKml() {
     })
     .join("\n");
 
-  downloadFile(
+  downloadTextFile(
     "italy-trip-map.kml",
     `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">

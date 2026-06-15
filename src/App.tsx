@@ -51,6 +51,7 @@ import { normalizeCustomPlaces } from "./lib/customPlaces";
 import { makeDayLabel, normalizeTripDays } from "./lib/tripDays";
 import { normalizeBooleanRecord, normalizeStringRecord } from "./lib/userRecords";
 import type { MoreKey } from "./screens/MoreScreen";
+import { downloadTextFile } from "./lib/download";
 
 const MapScreen = lazy(() => import("./screens/MapScreen"));
 const RankingScreen = lazy(() => import("./screens/RankingScreen"));
@@ -65,16 +66,6 @@ const tabItems = [
   { key: "ranking" as const, label: "장소", icon: MapPin },
   { key: "more" as const, label: "도구", icon: MoreHorizontal },
 ];
-
-function downloadFile(name: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 function routeMutationToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -555,7 +546,7 @@ export default function App() {
   }
 
   function exportBackup() {
-    downloadFile(
+    downloadTextFile(
       "italy-trip-backup.json",
       JSON.stringify(
         { version: 7, savedAt: new Date().toISOString(), days, customPlaces, routes, done, checks: checkedItems, notes, docs, budget, settings },

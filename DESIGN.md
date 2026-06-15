@@ -126,7 +126,8 @@ src/
     geo.ts                # haversine, 거리 포맷, 도보 환산
     score.ts              # getPlaceScore, 추천 점수, 모드별 가중치
     urls.ts               # Google Maps 장소/길찾기 URL
-    export.ts             # CSV/KML/JSON 백업
+    download.ts           # JSON/CSV/KML 파일 저장 공용 헬퍼
+    exportText.ts         # CSV/KML 텍스트 이스케이프
     storage.ts            # 버전 키 load/save, 마이그레이션
     routes.ts             # RouteItem 조작(추가/교체/이동/잠금 규칙) 순수 함수
   hooks/
