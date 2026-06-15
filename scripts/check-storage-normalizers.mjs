@@ -21,6 +21,7 @@ async function importTs(file) {
 const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await importTs("tripDays.ts");
 const { normalizeCustomPlace, normalizeCustomPlaces } = await importTs("customPlaces.ts");
 const { normalizeAppSettings } = await importTs("appSettings.ts");
+const { normalizeBudget, formatTotals, sumByCurrency } = await importTs("budget.ts");
 const { normalizeBooleanRecord, normalizeStringRecord } = await importTs("userRecords.ts");
 
 assert.equal(makeDayLabel("2026-06-20"), "6/20 토");
@@ -166,5 +167,21 @@ assert.deepEqual(
   normalizeStringRecord({ pantheon: "  예약 확인  ", empty: "   ", bad: 42 }),
   { pantheon: "예약 확인" }
 );
+
+assert.deepEqual(normalizeBudget("bad"), []);
+assert.deepEqual(
+  normalizeBudget([
+    { id: "  b1  ", date: "  2026-06-20  ", label: "  점심  ", amount: 18.5, currency: "EUR", category: "식비" },
+    { id: "b2", date: "2026-06-20", label: "택시", amount: Number.NaN, currency: "EUR", category: "교통" },
+    { id: "b3", date: "2026-06-20", label: "기념품", amount: 50000, currency: "KRW", category: "bad" },
+    { id: "b3", date: "2026-06-21", label: "중복", amount: 1, currency: "EUR", category: "식비" },
+    { id: "b4", date: "2026-06-21", label: "", amount: 1, currency: "EUR", category: "식비" },
+  ]),
+  [
+    { id: "b1", date: "2026-06-20", label: "점심", amount: 18.5, currency: "EUR", category: "식비" },
+    { id: "b3", date: "2026-06-20", label: "기념품", amount: 50000, currency: "KRW", category: "기타" },
+  ]
+);
+assert.equal(formatTotals(sumByCurrency(normalizeBudget([{ id: "b1", date: "2026-06-20", label: "점심", amount: 18.5, currency: "EUR", category: "식비" }]))), "€18.5");
 
 console.log("OK - storage normalizers");

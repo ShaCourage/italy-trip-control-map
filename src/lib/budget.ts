@@ -21,17 +21,39 @@ export const currencySymbol: Record<BudgetCurrency, string> = {
   KRW: "₩",
 };
 
+const categorySet = new Set<BudgetCategory>(budgetCategories);
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 export function normalizeBudget(value: unknown): BudgetEntry[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (entry): entry is BudgetEntry =>
-      Boolean(entry) &&
-      typeof entry.id === "string" &&
-      typeof entry.date === "string" &&
-      typeof entry.label === "string" &&
-      typeof entry.amount === "number" &&
-      (entry.currency === "EUR" || entry.currency === "KRW")
-  );
+  const seen = new Set<string>();
+  return value.flatMap((entry): BudgetEntry[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const raw = entry as Partial<Record<keyof BudgetEntry, unknown>>;
+    const id = cleanString(raw.id);
+    const date = cleanString(raw.date);
+    const label = cleanString(raw.label);
+    if (!id || seen.has(id) || !date || !label) return [];
+    if (typeof raw.amount !== "number" || !Number.isFinite(raw.amount) || raw.amount <= 0) return [];
+    if (raw.currency !== "EUR" && raw.currency !== "KRW") return [];
+
+    seen.add(id);
+    const category =
+      typeof raw.category === "string" && categorySet.has(raw.category as BudgetCategory)
+        ? (raw.category as BudgetCategory)
+        : "기타";
+    return [{
+      id,
+      date,
+      label,
+      amount: raw.amount,
+      currency: raw.currency,
+      category,
+    }];
+  });
 }
 
 export function formatAmount(amount: number, currency: BudgetCurrency) {
