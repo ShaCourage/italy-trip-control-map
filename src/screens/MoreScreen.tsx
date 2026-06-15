@@ -38,6 +38,7 @@ import type { AppSettings, FilterKey, TabKey, TripDay } from "../appCore";
 import { IconButton, Pill } from "../components/place";
 import { docTypeLabels, normalizeDocUrl } from "../lib/docs";
 import type { DocType, TripDoc, TripDocInput } from "../lib/docs";
+import { escapeCsvValue, escapeXmlText } from "../lib/exportText";
 import {
   budgetCategories,
   formatAmount,
@@ -71,10 +72,6 @@ async function hardRefresh() {
     // 실패해도 새로고침은 시도
   }
   window.location.reload();
-}
-
-function escapeCsv(value: string | number) {
-  return `"${String(value).replaceAll('"', '""')}"`;
 }
 
 function downloadFile(name: string, content: string, type: string) {
@@ -129,7 +126,7 @@ function exportCsv() {
       }),
   ];
 
-  downloadFile("italy-trip-map.csv", rows.map((row) => row.map(escapeCsv).join(",")).join("\n"), "text/csv;charset=utf-8");
+  downloadFile("italy-trip-map.csv", rows.map((row) => row.map(escapeCsvValue).join(",")).join("\n"), "text/csv;charset=utf-8");
 }
 
 function exportKml() {
@@ -138,8 +135,8 @@ function exportKml() {
     .map((place) => {
       const google = getPlaceScore(place);
       return `<Placemark>
-  <name>${place.koName}</name>
-  <description>${categoryLabels[place.category]} | ${place.area} | ${google.ratingText}${google.reviewCountLabel ? ` | ${google.reviewCountLabel}` : ""} | ${place.why}</description>
+  <name>${escapeXmlText(place.koName)}</name>
+  <description>${escapeXmlText(`${categoryLabels[place.category]} | ${place.area} | ${google.ratingText}${google.reviewCountLabel ? ` | ${google.reviewCountLabel}` : ""} | ${place.why}`)}</description>
   <Point><coordinates>${place.lng},${place.lat},0</coordinates></Point>
 </Placemark>`;
     })
