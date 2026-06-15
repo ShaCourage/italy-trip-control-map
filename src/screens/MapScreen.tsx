@@ -417,7 +417,7 @@ export default function MapScreen({
             {selectedRoute.length === 0 && (
               <div className="empty-route">
                 <strong>오늘 코스가 비어 있어요.</strong>
-                <p>지도 핀, 랭킹, 추천 코스에서 장소를 골라 직접 추가하면 선과 순서가 생깁니다.</p>
+                <p>지도 핀, 장소 탭, 추천 코스에서 장소를 골라 직접 추가하면 선과 순서가 생깁니다.</p>
               </div>
             )}
             {selectedRoute.map((item, index) => {

@@ -84,7 +84,7 @@ export default function TodayScreen({
         <section className="hero-panel">
           <span className="label">다음 목적지</span>
           <h2>{nextPlace?.koName ?? "코스를 직접 만들어보세요"}</h2>
-          <p>{nextPlace?.why ?? "지도나 랭킹에서 장소를 추가하거나, 추천 코스를 선택 적용하면 오늘 루트가 만들어진다."}</p>
+          <p>{nextPlace?.why ?? "지도나 장소 탭에서 장소를 추가하거나, 추천 코스를 선택 적용하면 오늘 루트가 만들어진다."}</p>
           {nextGoogle && (
             <div className="hero-meta">
               <span>

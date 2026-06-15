@@ -1,4 +1,4 @@
-// 장소 랭킹 화면 — 사진 카드 목록 + 바텀시트 상세. App에서 lazy 로드.
+// 장소 탐색 화면 — 사진 카드 목록 + 바텀시트 상세. App에서 lazy 로드.
 import { useState } from "react";
 import { MapPin, Plus, Star, X } from "lucide-react";
 import {
