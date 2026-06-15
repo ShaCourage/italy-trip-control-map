@@ -557,7 +557,7 @@ export default function MoreScreen({
               <label>
                 시작 화면
                 <select
-                  value={settings.startTab ?? "map"}
+                  value={settings.startTab ?? "today"}
                   onChange={(event) => updateSettings({ startTab: event.target.value as TabKey })}
                 >
                   {tabOptions.map((tab) => (

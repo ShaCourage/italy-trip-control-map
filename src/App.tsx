@@ -44,6 +44,7 @@ import { Pill } from "./components/place";
 import { DayAddForm } from "./components/schedule";
 import { normalizeTripDocs } from "./lib/docs";
 import type { TripDoc, TripDocInput } from "./lib/docs";
+import { normalizeAppSettings } from "./lib/appSettings";
 import { normalizeBudget } from "./lib/budget";
 import type { BudgetEntry } from "./lib/budget";
 import { normalizeCustomPlaces } from "./lib/customPlaces";
@@ -537,7 +538,7 @@ export default function App() {
 
   function updateSettings(patch: Partial<AppSettings>) {
     setSettings((current) => {
-      const next = { ...current, ...patch };
+      const next = normalizeAppSettings({ ...current, ...patch });
       applyHotelSettings(next);
       return next;
     });
@@ -589,8 +590,9 @@ export default function App() {
         if (Array.isArray(data.docs)) setDocs(normalizeTripDocs(data.docs));
         if (Array.isArray(data.budget)) setBudget(normalizeBudget(data.budget));
         if (data.settings) {
-          applyHotelSettings(data.settings);
-          setSettings(data.settings);
+          const importedSettings = normalizeAppSettings(data.settings);
+          applyHotelSettings(importedSettings);
+          setSettings(importedSettings);
         }
         setToast("백업 복원됨");
       })

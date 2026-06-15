@@ -9,6 +9,7 @@ import { rawPlaces, rawSources } from "./data/catalog";
 import { tripTemplates } from "./templates";
 import { placeEnhancements, PlaceEnhancement } from "./placeEnhancements";
 import type { RouteItem } from "./lib/routes";
+import { normalizeAppSettings } from "./lib/appSettings";
 import { loadSlice } from "./lib/storage";
 
 export type { RouteItem } from "./lib/routes";
@@ -257,7 +258,7 @@ export function traitBadges(place: Place): string[] {
 }
 
 function loadSettings(): AppSettings {
-  return loadSlice<AppSettings>("settings", {});
+  return normalizeAppSettings(loadSlice<unknown>("settings", {}));
 }
 
 // 숙소 placeholder 좌표를 설정값으로 덮어쓴다 — 모든 루트/거리 계산의 기준점

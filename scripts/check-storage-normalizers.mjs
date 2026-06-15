@@ -20,6 +20,7 @@ async function importTs(file) {
 
 const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await importTs("tripDays.ts");
 const { normalizeCustomPlace, normalizeCustomPlaces } = await importTs("customPlaces.ts");
+const { normalizeAppSettings } = await importTs("appSettings.ts");
 
 assert.equal(makeDayLabel("2026-06-20"), "6/20 토");
 assert.equal(makeDayLabel("not-a-date"), "not-a-date");
@@ -129,6 +130,29 @@ assert.deepEqual(
     { id: "custom-dup", name: "Second", lat: 42, lng: 13 },
   ]).map((place) => place.name),
   ["First"]
+);
+
+assert.deepEqual(normalizeAppSettings("bad"), {});
+assert.deepEqual(
+  normalizeAppSettings({
+    startTab: "broken",
+    defaultFilter: "bad",
+    appliedTemplateId: "  foodie  ",
+    romeHotel: { lat: 41.9, lng: 12.5, label: "  로마 숙소  " },
+    florenceHotel: { lat: Number.NaN, lng: 11.25, label: "bad" },
+  }),
+  {
+    appliedTemplateId: "foodie",
+    romeHotel: { lat: 41.9, lng: 12.5, label: "로마 숙소" },
+  }
+);
+assert.deepEqual(
+  normalizeAppSettings({ startTab: "ranking", defaultFilter: "photo", florenceHotel: { lat: 43.77, lng: 11.25 } }),
+  {
+    startTab: "ranking",
+    defaultFilter: "photo",
+    florenceHotel: { lat: 43.77, lng: 11.25 },
+  }
 );
 
 console.log("OK - storage normalizers");
