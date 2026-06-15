@@ -122,6 +122,8 @@ const cityCenters: Record<City, { lat: number; lng: number }> = {
   florence: { lat: 43.7696, lng: 11.2558 },
 };
 
+const EMPTY_DAY_ID = "__empty__";
+
 function loadStoredRoutes(): Record<string, RouteItem[]> {
   return sanitizeRoutes(loadSlice("routes", {}), (placeId) => placesById.has(placeId));
 }
@@ -134,7 +136,9 @@ function loadStoredDays(): TripDay[] {
   }
   // days 슬라이스 자체가 없을 때만(첫 실행) 루트 흔적으로 템플릿 복원
   const legacyRoutes = loadSlice<Record<string, RouteItem[]>>("routes", {});
-  const hasAny = Object.values(legacyRoutes).some((route) => Array.isArray(route) && route.length > 0);
+  const hasAny = Object.entries(legacyRoutes).some(
+    ([dayId, route]) => Boolean(dayId.trim()) && !dayId.startsWith("__") && Array.isArray(route) && route.length > 0
+  );
   if (hasAny) return normalizeTripDays(templateDays);
   return [];
 }
@@ -152,7 +156,7 @@ function localISODate() {
 }
 
 const emptyDay: TripDay = {
-  id: "__empty__",
+  id: EMPTY_DAY_ID,
   date: "",
   label: "",
   city: "rome",
@@ -439,6 +443,7 @@ export default function App() {
   }
 
   function addToRoute(placeId: string) {
+    if (!hasEditableDay()) return;
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
       const newItem = { uid: `${selectedDay.id}-custom-${Date.now()}-${placeId}`, placeId };
@@ -450,6 +455,7 @@ export default function App() {
   }
 
   function replaceNext(placeId: string) {
+    if (!hasEditableDay()) return;
     setRoutes((current) => {
       const items = current[selectedDay.id] ?? [];
       // 잠긴 일정(예약/기차)과 숙소·역은 교체 대상에서 제외
@@ -603,6 +609,7 @@ export default function App() {
   }
 
   function clearRoute() {
+    if (!hasEditableDay()) return;
     if (!window.confirm("오늘 코스를 전부 비울까요?")) return;
     setRoutes((current) => ({ ...current, [selectedDay.id]: [] }));
     setDone((current) => {
@@ -614,6 +621,7 @@ export default function App() {
   }
 
   function applyRecommendedRoute(mode: "replace" | "append" = "replace") {
+    if (!hasEditableDay()) return;
     setRoutes((current) => {
       const currentItems = current[selectedDay.id] ?? [];
       const currentIds = new Set(currentItems.map((item) => item.placeId));
@@ -636,6 +644,13 @@ export default function App() {
       };
     });
     setToast(mode === "replace" ? "추천 코스 적용됨" : "추천 장소 추가됨");
+  }
+
+  function hasEditableDay() {
+    if (days.length > 0 && selectedDay.id !== EMPTY_DAY_ID) return true;
+    setActiveTab("plan");
+    setToast("먼저 여행 템플릿을 고르거나 날짜를 추가하세요");
+    return false;
   }
 
   return (

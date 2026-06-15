@@ -22,6 +22,7 @@ const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await importTs("tr
 const { normalizeCustomPlace, normalizeCustomPlaces } = await importTs("customPlaces.ts");
 const { normalizeAppSettings } = await importTs("appSettings.ts");
 const { normalizeBudget, formatTotals, sumByCurrency } = await importTs("budget.ts");
+const { sanitizeRoutes } = await importTs("routes.ts");
 const { normalizeBooleanRecord, normalizeStringRecord } = await importTs("userRecords.ts");
 
 assert.equal(makeDayLabel("2026-06-20"), "6/20 토");
@@ -183,5 +184,21 @@ assert.deepEqual(
   ]
 );
 assert.equal(formatTotals(sumByCurrency(normalizeBudget([{ id: "b1", date: "2026-06-20", label: "점심", amount: 18.5, currency: "EUR", category: "식비" }]))), "€18.5");
+
+assert.deepEqual(
+  sanitizeRoutes(
+    {
+      "__empty__": [{ uid: "__empty__-custom-1", placeId: "pantheon" }],
+      "": [{ uid: "blank-1", placeId: "pantheon" }],
+      "2026-06-20": [
+        { uid: "r1", placeId: "pantheon", locked: true },
+        { uid: "r2", placeId: "unknown-place" },
+        { uid: 3, placeId: "pantheon" },
+      ],
+    },
+    (placeId) => placeId === "pantheon"
+  ),
+  { "2026-06-20": [{ uid: "r1", placeId: "pantheon", locked: true }] }
+);
 
 console.log("OK - storage normalizers");

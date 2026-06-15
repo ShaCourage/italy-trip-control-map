@@ -76,22 +76,27 @@ export function removePlaceFromRoutes(routes: RouteMap, placeId: string): RouteM
 export function sanitizeRoutes(value: unknown, isKnownPlace: (placeId: string) => boolean): RouteMap {
   if (!value || typeof value !== "object") return {};
   return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([dayId, items]) => [
-      dayId,
-      Array.isArray(items)
-        ? items
-            .filter(
-              (item): item is RouteItem =>
-                Boolean(
-                  item &&
-                    typeof item === "object" &&
-                    typeof (item as RouteItem).uid === "string" &&
-                    typeof (item as RouteItem).placeId === "string" &&
-                    isKnownPlace((item as RouteItem).placeId)
+    Object.entries(value as Record<string, unknown>).flatMap(([dayId, items]) => {
+      if (!dayId.trim() || dayId.startsWith("__")) return [];
+      return [
+        [
+          dayId,
+          Array.isArray(items)
+            ? items
+                .filter(
+                  (item): item is RouteItem =>
+                    Boolean(
+                      item &&
+                        typeof item === "object" &&
+                        typeof (item as RouteItem).uid === "string" &&
+                        typeof (item as RouteItem).placeId === "string" &&
+                        isKnownPlace((item as RouteItem).placeId)
+                    )
                 )
-            )
-            .map((item) => ({ ...item }))
-        : [],
-    ])
+                .map((item) => ({ ...item }))
+            : [],
+        ],
+      ];
+    })
   );
 }
