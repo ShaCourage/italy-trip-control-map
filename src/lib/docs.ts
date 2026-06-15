@@ -20,6 +20,30 @@ export const docTypeLabels: Record<DocType, string> = {
 
 const docTypes = new Set<DocType>(["flight", "train", "stay", "ticket", "other"]);
 
+function cleanString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function makeFallbackDocId(title: string, index: number) {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24);
+  return `doc-${slug || `item-${index + 1}`}`;
+}
+
+function makeUniqueDocId(baseId: string, seen: Set<string>) {
+  let id = baseId;
+  let suffix = 2;
+  while (seen.has(id)) {
+    id = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+  seen.add(id);
+  return id;
+}
+
 export function normalizeDocUrl(value: string): string | undefined {
   const trimmed = value.trim();
   if (!trimmed) return undefined;
@@ -33,26 +57,28 @@ export function normalizeDocUrl(value: string): string | undefined {
 
 export function normalizeTripDocs(value: unknown): TripDoc[] {
   if (!Array.isArray(value)) return [];
-  return value.flatMap((item): TripDoc[] => {
+  const seen = new Set<string>();
+  return value.flatMap((item, index): TripDoc[] => {
     if (!item || typeof item !== "object") return [];
     const raw = item as Partial<Record<keyof TripDoc, unknown>>;
-    const title = typeof raw.title === "string" ? raw.title.trim() : "";
+    const title = cleanString(raw.title);
     if (!title) return [];
     let url: string | undefined;
-    if (typeof raw.url === "string" && raw.url.trim()) {
+    if (cleanString(raw.url)) {
       try {
-        url = normalizeDocUrl(raw.url);
+        url = normalizeDocUrl(raw.url as string);
       } catch {
         url = undefined;
       }
     }
     const type = typeof raw.type === "string" && docTypes.has(raw.type as DocType) ? (raw.type as DocType) : "other";
+    const id = makeUniqueDocId(cleanString(raw.id) ?? makeFallbackDocId(title, index), seen);
     return [{
-      id: typeof raw.id === "string" && raw.id ? raw.id : `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id,
       type,
       title,
       url,
-      memo: typeof raw.memo === "string" && raw.memo.trim() ? raw.memo.trim() : undefined,
+      memo: cleanString(raw.memo),
     }];
   });
 }

@@ -22,6 +22,7 @@ const { makeDayLabel, normalizeTripDay, normalizeTripDays } = await importTs("tr
 const { normalizeCustomPlace, normalizeCustomPlaces } = await importTs("customPlaces.ts");
 const { normalizeAppSettings } = await importTs("appSettings.ts");
 const { normalizeBudget, formatTotals, sumByCurrency } = await importTs("budget.ts");
+const { normalizeTripDocs } = await importTs("docs.ts");
 const { sanitizeRoutes } = await importTs("routes.ts");
 const { normalizeBooleanRecord, normalizeStringRecord } = await importTs("userRecords.ts");
 
@@ -199,6 +200,21 @@ assert.deepEqual(
     (placeId) => placeId === "pantheon"
   ),
   { "2026-06-20": [{ uid: "r1", placeId: "pantheon", locked: true }] }
+);
+
+assert.deepEqual(normalizeTripDocs("bad"), []);
+assert.deepEqual(
+  normalizeTripDocs([
+    { id: "  doc-a  ", type: "ticket", title: "  콜로세움 예약  ", url: "coopculture.it", memo: "  10:30 입장  " },
+    { id: "doc-a", type: "bad", title: "  기차표  ", url: "javascript:alert(1)", memo: 42 },
+    { id: "", type: "flight", title: "  항공권  ", url: "https://airline.example/booking" },
+    { id: "blank", type: "stay", title: "   " },
+  ]),
+  [
+    { id: "doc-a", type: "ticket", title: "콜로세움 예약", url: "https://coopculture.it/", memo: "10:30 입장" },
+    { id: "doc-a-2", type: "other", title: "기차표", url: undefined, memo: undefined },
+    { id: "doc-item-3", type: "flight", title: "항공권", url: "https://airline.example/booking", memo: undefined },
+  ]
 );
 
 console.log("OK - storage normalizers");
